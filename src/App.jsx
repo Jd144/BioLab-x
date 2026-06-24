@@ -415,7 +415,9 @@ function Navbar({ activePage, isMenuOpen, user, onSignOut, onMenuToggle, onNavig
           </span>
           <span>
             <span className="block text-lg font-bold leading-5 text-ink">BioLabX</span>
-            <span className="text-xs font-medium text-slate-500">Virtual biotech lab</span>
+            <span className="hidden text-xs font-medium text-slate-500 sm:block">
+              Virtual biotech lab
+            </span>
           </span>
         </button>
 
@@ -472,8 +474,45 @@ function Navbar({ activePage, isMenuOpen, user, onSignOut, onMenuToggle, onNavig
           )}
         </div>
 
+        <div className="ml-auto flex items-center gap-2 lg:hidden">
+          {user ? (
+            <button
+              onClick={onSignOut}
+              className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition hover:bg-slate-100 sm:text-sm"
+            >
+              <LogOut size={16} />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => onNavigate('login')}
+                className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs font-bold transition sm:text-sm ${
+                  activePage === 'login'
+                    ? 'border-lab-100 bg-lab-50 text-lab-700'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <LockKeyhole size={15} />
+                Login
+              </button>
+              <button
+                onClick={() => onNavigate('signup')}
+                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-bold transition sm:text-sm ${
+                  activePage === 'signup'
+                    ? 'bg-lab-50 text-lab-700'
+                    : 'bg-ink text-white hover:bg-slate-700'
+                }`}
+              >
+                <UserPlus size={15} />
+                <span>Sign Up</span>
+              </button>
+            </>
+          )}
+        </div>
+
         <button
-          className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-ink lg:hidden"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white text-ink lg:hidden"
           onClick={onMenuToggle}
           aria-label="Toggle navigation"
         >
