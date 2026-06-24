@@ -993,6 +993,27 @@ function HomePage({ onNavigate }) {
                 <BookOpenCheck size={18} />
               </button>
             </div>
+            <div className="mt-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-slate-600">
+                Already using BioLabX or creating a new account?
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  onClick={() => onNavigate('login')}
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+                >
+                  <LockKeyhole size={16} />
+                  Login
+                </button>
+                <button
+                  onClick={() => onNavigate('signup')}
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-ink px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700"
+                >
+                  <UserPlus size={16} />
+                  Sign Up
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 shadow-soft">
