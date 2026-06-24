@@ -6,6 +6,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
+  useParams,
 } from 'react-router-dom';
 import {
   Activity,
@@ -47,7 +48,6 @@ import { isSupabaseConfigured, supabase } from './lib/supabaseClient';
 const pages = [
   { id: 'home', label: 'Home', icon: Home, path: '/' },
   { id: 'experiments', label: 'Experiments', icon: FlaskConical, path: '/experiments' },
-  { id: 'gel', label: 'Gel Simulator', icon: Activity, path: '/gel-electrophoresis' },
 ];
 
 const dashboardRoles = ['student', 'teacher', 'lab_assistant', 'phd', 'institute', 'admin'];
@@ -56,7 +56,6 @@ const routePaths = {
   home: '/',
   student: '/student',
   experiments: '/experiments',
-  gel: '/gel-electrophoresis',
   teacher: '/teacher',
   lab_assistant: '/lab-assistant',
   phd: '/phd',
@@ -71,7 +70,6 @@ const routeLabels = {
   home: 'Home',
   student: 'Student Dashboard',
   experiments: 'Experiments',
-  gel: 'Gel Simulator',
   teacher: 'Teacher Dashboard',
   lab_assistant: 'Lab Assistant Dashboard',
   phd: 'PhD Dashboard',
@@ -148,38 +146,126 @@ const roleDashboardConfig = {
 };
 
 const experiments = [
-  {
+  createExperiment({
+    slug: 'pcr-amplification',
     title: 'PCR Amplification',
     category: 'Molecular Biology',
     duration: '45 min',
     difficulty: 'Intermediate',
-    status: 'Ready',
-    objective: 'Amplify target DNA sequences and review primer design accuracy.',
-  },
-  {
+    icon: Dna,
+    objective: 'Amplify a target DNA segment and interpret amplification quality using primer and cycle logic.',
+    principle: 'Polymerase chain reaction uses repeated denaturation, annealing, and extension cycles to exponentially amplify DNA.',
+    applications: ['Disease diagnostics', 'Forensic DNA analysis', 'Gene cloning preparation'],
+    materials: ['Template DNA', 'PCR tubes', 'Pipette tips', 'Ice box'],
+    reagents: ['Template DNA: 2 uL', 'Forward primer: 1 uL', 'Reverse primer: 1 uL', 'Master mix: 12.5 uL', 'Nuclease-free water: 8.5 uL'],
+    equipment: ['Thermocycler', 'Micropipettes', 'Mini centrifuge'],
+    procedure: ['Label PCR tubes clearly.', 'Prepare master mix on ice.', 'Add DNA template and primers.', 'Place tubes in thermocycler.', 'Run denaturation, annealing, and extension cycles.', 'Review amplification output.'],
+  }),
+  createExperiment({
+    slug: 'gel-electrophoresis',
+    title: 'Gel Electrophoresis',
+    category: 'Molecular Biology',
+    duration: '35 min',
+    difficulty: 'Beginner',
+    icon: Activity,
+    objective: 'Separate DNA fragments by size and estimate band positions using a DNA ladder.',
+    principle: 'DNA migrates through agarose gel toward the positive electrode; smaller fragments move faster than larger fragments.',
+    applications: ['PCR result validation', 'DNA fragment sizing', 'Restriction digest analysis'],
+    materials: ['Agarose gel tray', 'Comb', 'DNA samples', 'Loading dye'],
+    reagents: ['Agarose: 1.2 g', 'TAE buffer: 100 mL', 'DNA ladder: 5 uL', 'Sample DNA: 10 uL', 'Loading dye: 2 uL'],
+    equipment: ['Gel tank', 'Power supply', 'UV or blue-light transilluminator'],
+    procedure: ['Prepare agarose gel.', 'Place gel in running buffer.', 'Mix DNA sample with loading dye.', 'Load ladder and samples.', 'Run gel at suitable voltage.', 'Visualize and compare DNA bands.'],
+  }),
+  createExperiment({
+    slug: 'elisa',
+    title: 'ELISA',
+    category: 'Immunology',
+    duration: '50 min',
+    difficulty: 'Intermediate',
+    icon: Beaker,
+    objective: 'Detect antigen or antibody presence using enzyme-linked colorimetric signal.',
+    principle: 'Specific antigen-antibody binding is detected through an enzyme reaction that produces a measurable color change.',
+    applications: ['Clinical diagnostics', 'Vaccine response monitoring', 'Protein detection'],
+    materials: ['Microplate', 'Plate sealers', 'Wash bottle', 'Absorbent paper'],
+    reagents: ['Coating antigen: 100 uL/well', 'Blocking buffer: 200 uL/well', 'Primary antibody: 100 uL/well', 'Substrate: 100 uL/well'],
+    equipment: ['Microplate reader', 'Multichannel pipette', 'Incubator'],
+    procedure: ['Coat wells with antigen.', 'Block non-specific binding sites.', 'Add sample or antibody.', 'Wash wells thoroughly.', 'Add enzyme conjugate and substrate.', 'Read absorbance.'],
+  }),
+  createExperiment({
+    slug: 'microscopy',
+    title: 'Microscopy',
+    category: 'Cell Biology',
+    duration: '30 min',
+    difficulty: 'Beginner',
+    icon: Eye,
+    objective: 'Prepare and observe biological samples using correct focusing and magnification technique.',
+    principle: 'Light microscopy uses lenses to magnify specimens and reveal cellular structures through contrast and staining.',
+    applications: ['Cell morphology study', 'Microbial observation', 'Histology training'],
+    materials: ['Glass slides', 'Coverslips', 'Prepared sample', 'Lens paper'],
+    reagents: ['Methylene blue: 1 drop', 'Immersion oil: 1 drop when needed', 'Distilled water: 1 drop'],
+    equipment: ['Compound microscope', 'Slide warmer', 'Dropper'],
+    procedure: ['Clean slide and coverslip.', 'Place sample on slide.', 'Add stain if required.', 'Apply coverslip carefully.', 'Focus under low power.', 'Increase magnification and record observations.'],
+  }),
+  createExperiment({
+    slug: 'cell-culture',
+    title: 'Cell Culture',
+    category: 'Biotechnology',
+    duration: '60 min',
+    difficulty: 'Advanced',
+    icon: TestTube2,
+    objective: 'Understand aseptic handling, media preparation, and basic culture maintenance.',
+    principle: 'Cells require sterile handling, suitable nutrients, controlled temperature, and CO2 conditions for growth.',
+    applications: ['Drug screening', 'Vaccine research', 'Tissue engineering'],
+    materials: ['Culture flask', 'Sterile pipettes', 'Cell suspension', 'Waste container'],
+    reagents: ['Culture medium: 10 mL', 'FBS: 10%', 'Antibiotic solution: 1%', 'PBS: 5 mL'],
+    equipment: ['Biosafety cabinet', 'CO2 incubator', 'Inverted microscope'],
+    procedure: ['Disinfect work area.', 'Warm media and reagents.', 'Transfer cells aseptically.', 'Add complete medium.', 'Incubate under controlled conditions.', 'Observe confluency and contamination.'],
+  }),
+  createExperiment({
+    slug: 'crispr-guide-design',
     title: 'CRISPR Guide Design',
     category: 'Genetic Engineering',
     duration: '55 min',
     difficulty: 'Advanced',
-    status: 'AI Assisted',
-    objective: 'Compare candidate guide RNAs using specificity and efficiency scores.',
-  },
-  {
+    icon: BrainCircuit,
+    objective: 'Select a guide RNA sequence using target specificity and off-target risk criteria.',
+    principle: 'CRISPR-Cas systems use guide RNA complementarity to direct nuclease activity to a target DNA sequence.',
+    applications: ['Functional genomics', 'Gene editing planning', 'Mutation modeling'],
+    materials: ['Target gene sequence', 'Guide candidate list', 'Scoring worksheet'],
+    reagents: ['In silico module only: no wet-lab reagents required'],
+    equipment: ['Sequence analysis workstation', 'Guide design software'],
+    procedure: ['Paste target DNA sequence.', 'Identify PAM-adjacent regions.', 'Generate guide candidates.', 'Compare GC content and specificity.', 'Review off-target risk.', 'Select best guide for simulation.'],
+  }),
+  createExperiment({
+    slug: 'bacterial-transformation',
     title: 'Bacterial Transformation',
     category: 'Microbiology',
     duration: '40 min',
     difficulty: 'Beginner',
-    status: 'Ready',
-    objective: 'Introduce plasmid DNA into competent cells and analyze colony growth.',
-  },
-  {
+    icon: FlaskConical,
+    objective: 'Introduce plasmid DNA into competent bacteria and understand selection logic.',
+    principle: 'Competent cells can uptake plasmid DNA after heat shock or electroporation and grow on selective media.',
+    applications: ['Cloning workflows', 'Protein expression', 'Plasmid propagation'],
+    materials: ['Competent cells', 'Plasmid DNA', 'Microcentrifuge tubes', 'Agar plates'],
+    reagents: ['Competent cells: 50 uL', 'Plasmid DNA: 5 uL', 'SOC medium: 450 uL', 'Antibiotic agar plate: 1'],
+    equipment: ['Water bath', 'Incubator', 'Sterile spreader'],
+    procedure: ['Thaw competent cells on ice.', 'Add plasmid DNA gently.', 'Perform heat shock.', 'Recover cells in SOC medium.', 'Plate on selective agar.', 'Incubate and count colonies.'],
+  }),
+  createExperiment({
+    slug: 'protein-assay',
     title: 'Protein Assay',
     category: 'Biochemistry',
     duration: '35 min',
     difficulty: 'Beginner',
-    status: 'Ready',
-    objective: 'Estimate sample protein concentration from a simulated standard curve.',
-  },
+    icon: BarChart3,
+    objective: 'Estimate unknown protein concentration using standards and absorbance comparison.',
+    principle: 'Colorimetric protein assays correlate absorbance intensity with protein concentration using a standard curve.',
+    applications: ['Sample normalization', 'Enzyme studies', 'Protein purification tracking'],
+    materials: ['Cuvettes', 'Protein standards', 'Unknown sample', 'Assay tubes'],
+    reagents: ['Protein standard: 0-1 mg/mL', 'Assay reagent: 1 mL/tube', 'Unknown sample: 20 uL'],
+    equipment: ['Spectrophotometer', 'Vortex mixer', 'Micropipettes'],
+    procedure: ['Prepare protein standards.', 'Add assay reagent.', 'Add unknown sample.', 'Incubate for color development.', 'Measure absorbance.', 'Calculate concentration from standard curve.'],
+  }),
 ];
 
 const studentModules = [
@@ -307,6 +393,62 @@ function GaugeIcon(props) {
 
 function ShieldIcon(props) {
   return <LockKeyhole {...props} />;
+}
+
+function createExperiment(experiment) {
+  return {
+    status: 'Ready',
+    introduction: `${experiment.title} is a guided BioLabX learning module designed to help learners understand the workflow before entering a real laboratory.`,
+    safety: [
+      'Wear lab coat, gloves, and eye protection.',
+      'Label all samples before handling.',
+      'Avoid contamination by using clean tips and sterile technique.',
+      'Dispose biological and chemical waste according to lab rules.',
+    ],
+    commonErrors: [
+      'Skipping labels or mixing sample order.',
+      'Using incorrect volumes or contaminated tips.',
+      'Ignoring incubation or run-time conditions.',
+      'Recording observations without controls.',
+    ],
+    video: 'Educational video placeholder: add an approved lecture, protocol walkthrough, or institution-hosted training video.',
+    simulation3d: '3D simulation placeholder: future interactive lab model will appear here.',
+    interactiveSimulation: [
+      'Review the protocol sequence.',
+      'Select correct materials.',
+      'Check safety readiness.',
+      'Interpret the simulated result.',
+    ],
+    resultAnalysis: [
+      'Compare observed result with the expected control.',
+      'Identify whether the workflow produced a valid output.',
+      'Record one possible source of error and one improvement.',
+    ],
+    vivaQuestions: [
+      `What is the main purpose of ${experiment.title}?`,
+      'Why are controls important in this experiment?',
+      'Which step is most sensitive to handling error?',
+      'How would you confirm the result is valid?',
+    ],
+    mcq: [
+      {
+        question: `What should be completed before starting ${experiment.title}?`,
+        options: ['Safety and material check', 'Certificate download', 'Skipping controls', 'Discarding observations'],
+        answer: 'Safety and material check',
+      },
+      {
+        question: 'What makes an experiment result reliable?',
+        options: ['Controls and accurate records', 'Random labels', 'Unmeasured volumes', 'No repeat observations'],
+        answer: 'Controls and accurate records',
+      },
+      {
+        question: 'What should learners do after completing the simulation?',
+        options: ['Analyze results and note errors', 'Close without review', 'Ignore procedure steps', 'Change data randomly'],
+        answer: 'Analyze results and note errors',
+      },
+    ],
+    ...experiment,
+  };
 }
 
 function App() {
@@ -469,7 +611,8 @@ function AppShell() {
           />
           <Route path="/forgot-password" element={<ForgotPasswordPage onNavigate={goToPage} />} />
           <Route path="/experiments" element={<ExperimentsPage />} />
-          <Route path="/gel-electrophoresis" element={<GelSimulator />} />
+          <Route path="/experiments/:experimentSlug" element={<ExperimentDetailPage />} />
+          <Route path="/gel-electrophoresis" element={<Navigate to="/experiments/gel-electrophoresis" replace />} />
           <Route
             path="/student"
             element={
@@ -529,6 +672,10 @@ function AppShell() {
 }
 
 function getRouteIdFromPath(pathname) {
+  if (pathname.startsWith('/experiments/')) {
+    return 'experiments';
+  }
+
   const route = Object.entries(routePaths).find(([, path]) => path === pathname);
   return route?.[0] ?? 'home';
 }
@@ -1503,13 +1650,15 @@ function StudentDashboard() {
 }
 
 function ExperimentsPage() {
+  const navigate = useNavigate();
+
   return (
     <PageShell>
       <div className="flex flex-col justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center">
         <div>
-          <h2 className="text-xl font-bold">Experiment Library</h2>
+          <h2 className="text-xl font-bold">Experiment Learning Library</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Dummy modules for guided biotechnology simulation.
+            Dedicated learning pages with theory, protocol, simulation, assessment, and certificate flow.
           </p>
         </div>
         <div className="flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 text-slate-500 md:w-80">
@@ -1518,103 +1667,290 @@ function ExperimentsPage() {
         </div>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        {experiments.map((experiment) => (
-          <article
-            key={experiment.title}
-            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-lab-200 hover:shadow-soft"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-lab-50 text-lab-700">
-                  <Beaker size={23} />
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {experiments.map((experiment) => {
+          const Icon = experiment.icon;
+
+          return (
+            <article
+              key={experiment.title}
+              className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-lab-200 hover:shadow-soft"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex gap-3">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-lab-50 text-lab-700">
+                    <Icon size={23} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold">{experiment.title}</h3>
+                    <p className="mt-1 text-sm font-medium text-slate-500">{experiment.category}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-lg font-bold">{experiment.title}</h3>
-                  <p className="mt-1 text-sm font-medium text-slate-500">{experiment.category}</p>
-                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
+                  {experiment.status}
+                </span>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                {experiment.status}
-              </span>
-            </div>
-            <p className="mt-4 text-sm leading-6 text-slate-600">{experiment.objective}</p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Tag>{experiment.duration}</Tag>
-              <Tag>{experiment.difficulty}</Tag>
-            </div>
-            <button className="mt-5 inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700">
-              <PlayCircle size={17} />
-              Start simulation
-            </button>
-          </article>
-        ))}
+              <p className="mt-4 text-sm leading-6 text-slate-600">{experiment.objective}</p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Tag>{experiment.duration}</Tag>
+                <Tag>{experiment.difficulty}</Tag>
+              </div>
+              <button
+                onClick={() => navigate(`/experiments/${experiment.slug}`)}
+                className="mt-5 inline-flex items-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-700"
+              >
+                <PlayCircle size={17} />
+                Start simulation
+              </button>
+            </article>
+          );
+        })}
       </div>
     </PageShell>
   );
 }
 
-function GelSimulator() {
-  const lanes = [
-    [18, 34, 62],
-    [24, 45, 78],
-    [16, 52, 88],
-    [31, 66],
-    [20, 39, 70, 91],
-  ];
+function ExperimentDetailPage() {
+  const { experimentSlug } = useParams();
+  const navigate = useNavigate();
+  const experiment = experiments.find((item) => item.slug === experimentSlug);
+
+  if (!experiment) {
+    return (
+      <PageShell>
+        <Panel title="Experiment not found" subtitle="Choose an available BioLabX experiment.">
+          <button
+            onClick={() => navigate('/experiments')}
+            className="rounded-md bg-ink px-4 py-2 text-sm font-bold text-white"
+          >
+            Back to Experiments
+          </button>
+        </Panel>
+      </PageShell>
+    );
+  }
+
+  const Icon = experiment.icon;
 
   return (
     <PageShell>
-      <div className="rounded-lg border border-lab-100 bg-lab-50 p-4 text-sm font-semibold leading-6 text-lab-700">
-        Gel Electrophoresis remains public for open practice. The Supabase foundation is ready to
-        save progress to student_progress after login in a future iteration.
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[0.95fr_1.35fr]">
-        <Panel title="Simulation Setup" subtitle="Configure a dummy gel electrophoresis run">
-          <div className="grid gap-4">
-            <Control label="Gel concentration" value="1.2% agarose" />
-            <Control label="Voltage" value="110 V" />
-            <Control label="Run time" value="38 min" />
-            <Control label="DNA ladder" value="100 bp marker" />
+      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <button
+          onClick={() => navigate('/experiments')}
+          className="mb-5 text-sm font-bold text-lab-700 hover:text-lab-600"
+        >
+          Back to experiments
+        </button>
+        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+          <div className="flex gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-lab-50 text-lab-700">
+              <Icon size={28} />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-lab-700">
+                {experiment.category}
+              </p>
+              <h2 className="mt-2 text-3xl font-bold text-ink">{experiment.title}</h2>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+                {experiment.introduction}
+              </p>
+            </div>
           </div>
-          <button className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-lab-700 px-4 py-3 text-sm font-bold text-white hover:bg-lab-600">
-            <PlayCircle size={18} />
-            Run virtual gel
-          </button>
-        </Panel>
+          <div className="flex flex-wrap gap-2">
+            <Tag>{experiment.difficulty}</Tag>
+            <Tag>{experiment.duration}</Tag>
+            <Tag>{experiment.status}</Tag>
+          </div>
+        </div>
+      </section>
 
-        <Panel title="Gel Electrophoresis Viewer" subtitle="Visual dummy output">
-          <div className="rounded-lg border border-slate-200 bg-slate-900 p-5">
-            <div className="grid h-80 grid-cols-5 gap-4 rounded-md bg-gradient-to-b from-slate-800 to-slate-950 p-4">
-              {lanes.map((lane, laneIndex) => (
-                <div key={laneIndex} className="relative rounded-sm border-x border-blue-200/20">
-                  <div className="absolute left-1/2 top-2 h-3 w-10 -translate-x-1/2 rounded-sm bg-blue-100/70" />
-                  {lane.map((band) => (
-                    <div
-                      key={band}
-                      className="absolute left-1/2 h-2 w-12 -translate-x-1/2 rounded-full bg-cyan-200 shadow-[0_0_16px_rgba(165,243,252,0.85)]"
-                      style={{ top: `${band}%` }}
-                    />
-                  ))}
-                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-bold text-cyan-100">
-                    L{laneIndex + 1}
-                  </span>
-                </div>
+      <ExperimentTextSection title="Introduction" content={experiment.introduction} />
+      <ExperimentTextSection title="Objective" content={experiment.objective} />
+      <ExperimentTextSection title="Principle" content={experiment.principle} />
+      <ExperimentListSection title="Applications" items={experiment.applications} />
+      <ExperimentListSection title="Materials Required" items={experiment.materials} />
+      <ExperimentListSection title="Reagents and Quantities" items={experiment.reagents} />
+      <ExperimentListSection title="Equipment Used" items={experiment.equipment} />
+      <ExperimentListSection title="Safety Precautions" items={experiment.safety} />
+      <ExperimentListSection title="Step-by-Step Procedure" items={experiment.procedure} ordered />
+      <ExperimentListSection title="Common Errors" items={experiment.commonErrors} />
+      <VideoPlaceholder experiment={experiment} />
+      <Simulation3DPlaceholder experiment={experiment} />
+      <InteractiveSimulation experiment={experiment} />
+      <ExperimentListSection title="Result Analysis" items={experiment.resultAnalysis} />
+      <ExperimentListSection title="Viva Questions" items={experiment.vivaQuestions} ordered />
+      <McqQuiz experiment={experiment} />
+      <CertificateSection experiment={experiment} />
+    </PageShell>
+  );
+}
+
+function ExperimentTextSection({ title, content }) {
+  return (
+    <Panel title={title} subtitle="Core learning note">
+      <p className="text-sm leading-7 text-slate-600">{content}</p>
+    </Panel>
+  );
+}
+
+function ExperimentListSection({ title, items, ordered = false }) {
+  const ListTag = ordered ? 'ol' : 'ul';
+
+  return (
+    <Panel title={title} subtitle="Structured experiment reference">
+      <ListTag className={`grid gap-3 text-sm leading-6 text-slate-600 ${ordered ? 'list-decimal pl-5' : ''}`}>
+        {items.map((item) => (
+          <li key={item} className={ordered ? 'pl-1' : 'flex gap-3'}>
+            {!ordered && <CheckCircle2 className="mt-0.5 shrink-0 text-lab-600" size={17} />}
+            <span>{item}</span>
+          </li>
+        ))}
+      </ListTag>
+    </Panel>
+  );
+}
+
+function VideoPlaceholder({ experiment }) {
+  return (
+    <Panel title="Embedded Educational Video Section" subtitle="Ready for institution-approved videos">
+      <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+        <div>
+          <PlayCircle className="mx-auto text-lab-700" size={34} />
+          <p className="mt-3 text-sm font-semibold text-ink">{experiment.title} video module</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{experiment.video}</p>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function Simulation3DPlaceholder({ experiment }) {
+  return (
+    <Panel title="3D Simulation Placeholder Section" subtitle="Future immersive model area">
+      <div className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-5 md:grid-cols-[0.8fr_1.2fr]">
+        <div className="flex aspect-video items-center justify-center rounded-md bg-white text-lab-700">
+          <Microscope size={46} />
+        </div>
+        <div>
+          <h3 className="font-bold text-ink">{experiment.title} virtual lab model</h3>
+          <p className="mt-2 text-sm leading-6 text-slate-600">{experiment.simulation3d}</p>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function InteractiveSimulation({ experiment }) {
+  const [checkedSteps, setCheckedSteps] = useState([]);
+  const score = Math.round((checkedSteps.length / experiment.interactiveSimulation.length) * 100);
+
+  const toggleStep = (step) => {
+    setCheckedSteps((current) =>
+      current.includes(step) ? current.filter((item) => item !== step) : [...current, step],
+    );
+  };
+
+  return (
+    <Panel title="Interactive Simulation" subtitle="Simple guided interaction for MVP learning flow">
+      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="space-y-3">
+          {experiment.interactiveSimulation.map((step) => (
+            <label
+              key={step}
+              className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700"
+            >
+              <input
+                type="checkbox"
+                checked={checkedSteps.includes(step)}
+                onChange={() => toggleStep(step)}
+                className="h-4 w-4"
+              />
+              {step}
+            </label>
+          ))}
+        </div>
+        <div className="rounded-lg bg-lab-50 p-5">
+          <p className="text-sm font-bold text-lab-700">Simulation progress</p>
+          <p className="mt-3 text-4xl font-bold text-ink">{score}%</p>
+          <div className="mt-4 h-2 rounded-full bg-white">
+            <div className="h-2 rounded-full bg-lab-600" style={{ width: `${score}%` }} />
+          </div>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Complete each step to unlock stronger result analysis readiness.
+          </p>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function McqQuiz({ experiment }) {
+  const [answers, setAnswers] = useState({});
+  const answeredCount = Object.keys(answers).length;
+  const score = experiment.mcq.reduce(
+    (total, item, index) => total + (answers[index] === item.answer ? 1 : 0),
+    0,
+  );
+  const percentage = Math.round((score / experiment.mcq.length) * 100);
+
+  return (
+    <Panel title="MCQ Quiz" subtitle="Knowledge check with score tracking">
+      <div className="space-y-5">
+        {experiment.mcq.map((item, index) => (
+          <div key={item.question} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <p className="font-bold text-ink">{index + 1}. {item.question}</p>
+            <div className="mt-3 grid gap-2">
+              {item.options.map((option) => (
+                <label key={option} className="flex cursor-pointer items-center gap-3 text-sm text-slate-700">
+                  <input
+                    type="radio"
+                    name={`${experiment.slug}-${index}`}
+                    checked={answers[index] === option}
+                    onChange={() => setAnswers((current) => ({ ...current, [index]: option }))}
+                  />
+                  {option}
+                </label>
               ))}
             </div>
           </div>
-        </Panel>
-      </div>
-
-      <Panel title="AI Interpretation" subtitle="Dummy result summary">
-        <div className="grid gap-4 md:grid-cols-3">
-          <Interpretation label="Lane 1" result="Clean amplified target near 500 bp." />
-          <Interpretation label="Lane 3" result="Possible non-specific banding detected." />
-          <Interpretation label="Lane 5" result="Strong ladder alignment for fragment sizing." />
+        ))}
+        <div className="rounded-lg border border-lab-100 bg-lab-50 p-4">
+          <p className="text-sm font-bold text-lab-700">Score Tracking</p>
+          <p className="mt-2 text-2xl font-bold text-ink">
+            {score}/{experiment.mcq.length} correct ({percentage}%)
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            Answered {answeredCount} of {experiment.mcq.length} questions.
+          </p>
         </div>
-      </Panel>
-    </PageShell>
+      </div>
+    </Panel>
+  );
+}
+
+function CertificateSection({ experiment }) {
+  return (
+    <Panel title="Completion Certificate" subtitle="Certificate preview for completed learning modules">
+      <div className="rounded-lg border-2 border-dashed border-lab-200 bg-white p-6 text-center">
+        <AwardIcon />
+        <h3 className="mt-3 text-2xl font-bold text-ink">BioLabX Completion Certificate</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          This placeholder certificate will be unlocked after verified completion of {experiment.title},
+          quiz passing score, and saved progress.
+        </p>
+        <button className="mt-5 rounded-md bg-slate-200 px-4 py-2 text-sm font-bold text-slate-500" disabled>
+          Certificate unlocks after completion
+          </button>
+      </div>
+    </Panel>
+  );
+}
+
+function AwardIcon() {
+  return (
+    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-lab-50 text-lab-700">
+      <CheckCircle2 size={30} />
+    </div>
   );
 }
 
