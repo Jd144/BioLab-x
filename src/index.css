@@ -25,6 +25,20 @@ a {
   -webkit-tap-highlight-color: transparent;
 }
 
+.animate-equipment-marquee {
+  animation: equipment-marquee 36s linear infinite;
+}
+
+@keyframes equipment-marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 @media print {
   body * {
     visibility: hidden;

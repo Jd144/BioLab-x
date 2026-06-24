@@ -89,6 +89,15 @@ const routeLabels = {
 
 const roleOptions = ['student', 'teacher', 'lab_assistant', 'phd', 'institute', 'admin'];
 
+const roleLabels = {
+  student: 'Student',
+  teacher: 'Teacher',
+  lab_assistant: 'Lab Assistant',
+  phd: 'PhD Scholar',
+  institute: 'Institute',
+  admin: 'Admin',
+};
+
 const experimentIconMap = {
   activity: Activity,
   beaker: Beaker,
@@ -159,6 +168,177 @@ const roleDashboardConfig = {
       { label: 'Role access', value: 'Admin', detail: 'Reserved for future platform management.' },
       { label: 'Users', value: 'Profiles', detail: 'Profiles are stored in Supabase for real user roles.' },
       { label: 'Current scope', value: 'Access', detail: 'Only role routing and dashboard foundations are enabled now.' },
+    ],
+  },
+};
+
+const roleDashboardWorkspaces = {
+  student: {
+    summary: [
+      ['Course', 'course', 'Not set'],
+      ['Batch year', 'batch_year', 'Not set'],
+      ['Entry / roll number', 'entry_number', 'Not set'],
+      ['Bio', 'bio', 'Not added'],
+    ],
+    metrics: [
+      ['Joined teachers/classes', '3'],
+      ['Assigned experiments', '8'],
+      ['Attendance summary', '86%'],
+      ['Total study time', '18.5 h'],
+    ],
+    cards: [
+      ['Search institute teachers', 'Find teachers by institute, department, or lab and send join requests.'],
+      ['Today assigned experiment', 'PCR Amplification due today with quiz and simulation.'],
+      ['Study/lab material', 'View teacher uploaded instructions, links, and resources.'],
+      ['Certificates', 'Open earned certificates from completed BioLabX modules.'],
+    ],
+    tableTitle: 'Student Learning Overview',
+    tableRows: [
+      ['Quiz scores', 'PCR 82%, Gel 90%, ELISA 76%'],
+      ['Experiment performance', 'Strong in sample prep, needs result interpretation practice'],
+      ['Topic-wise progress', 'Molecular biology 72%, Microscopy 64%, Biochemistry 58%'],
+      ['Recent notices', 'Bring lab notebook for Friday wet-lab briefing'],
+      ['Recommended experiments', 'Gel Electrophoresis, Protein Assay, Microscopy'],
+    ],
+  },
+  teacher: {
+    summary: [
+      ['Designation', 'designation', 'Not set'],
+      ['Department', 'department', 'Not set'],
+      ['Lab name', 'lab_name', 'Not set'],
+      ['Subjects / lab courses', 'subjects_taught', 'Not set'],
+    ],
+    metrics: [
+      ['Classes created', '4'],
+      ['Student requests', '12'],
+      ['Student list', '128'],
+      ['Pending assignments', '6'],
+    ],
+    cards: [
+      ['Create classroom/lab group', 'Set up sections for batches, practical groups, or lab rotations.'],
+      ['Accept/reject requests', 'Review student join requests and bulk accept eligible students.'],
+      ['Assign experiment', 'Attach due date, instructions, links, and resource material.'],
+      ['Mark attendance', 'Create attendance sessions and mark present/absent records.'],
+    ],
+    tableTitle: 'Teacher Analytics Snapshot',
+    tableRows: [
+      ['Quiz score tracking', 'Average 81% across current class modules'],
+      ['Time spent per student', 'Range 22-95 minutes per assigned activity'],
+      ['Topic progress per student', 'DNA workflows ahead, ELISA interpretation needs support'],
+      ['Student profile view', 'Attendance percentage, attempt history, scores, topics, time spent'],
+      ['Performance graph', 'Graph placeholder ready for chart integration'],
+    ],
+  },
+  phd: {
+    summary: [
+      ['Supervisor / PI', 'supervisor_name', 'Not assigned'],
+      ['Institute', 'institute', 'Not set'],
+      ['Research area', 'research_area', 'Not set'],
+      ['Current project', 'current_project', 'Not set'],
+    ],
+    metrics: [
+      ['Publications', 'publications_count'],
+      ['Conferences', 'conferences_count'],
+      ['Research progress', '64%'],
+      ['Protocol notes', '11'],
+    ],
+    cards: [
+      ['Update research profile', 'Maintain research area, current project, lab, and supervisor details.'],
+      ['Protocol notes', 'Draft reusable notes for experiments, troubleshooting, and observations.'],
+      ['Experiment records', 'Track virtual and lab experiment records for project continuity.'],
+      ['Inventory access', 'Lab inventory visibility is shown after teacher/PI approval.'],
+    ],
+    tableTitle: 'Research Workspace',
+    tableRows: [
+      ['Lab name', 'Connected lab profile from signup or supervisor assignment'],
+      ['Project details', 'Current project title and progress summary'],
+      ['Publications count', 'Editable research output count'],
+      ['Conference count', 'Editable conference participation count'],
+      ['Protocol notes', 'Placeholder list ready for Supabase protocol records'],
+    ],
+  },
+  lab_assistant: {
+    summary: [
+      ['Assigned lab', 'lab_name', 'Not assigned'],
+      ['Department', 'department', 'Not set'],
+      ['Institute', 'institute', 'Not set'],
+      ['Responsibility / work area', 'responsibility', 'Not set'],
+    ],
+    metrics: [
+      ['Inventory items', '146'],
+      ['Stock alerts', '9'],
+      ['Expiry alerts', '5'],
+      ['Maintenance records', '13'],
+    ],
+    cards: [
+      ['Add/edit inventory', 'Create item records, units, locations, reorder levels, and suppliers.'],
+      ['Update stock', 'Log incoming and consumed reagents through inventory logs.'],
+      ['Equipment maintenance', 'Add scheduled, in-progress, completed, and overdue maintenance records.'],
+      ['Lab updates', 'Send updates visible to approved teachers, PIs, PhD scholars, and lab members.'],
+    ],
+    tableTitle: 'Lab Operations Snapshot',
+    tableRows: [
+      ['Reagent stock alerts', 'Taq polymerase low, ELISA substrate reorder required'],
+      ['Expiry alerts', 'Agar plates and staining reagents due for review'],
+      ['Lab members', 'Visible after PI/teacher approval'],
+      ['Equipment maintenance', 'Centrifuge calibration due this week'],
+      ['Responsibility updates', 'Media prep, reagent stock, and equipment readiness'],
+    ],
+  },
+  institute: {
+    summary: [
+      ['Institute / University', 'institute', 'Not set'],
+      ['Department / school', 'department', 'Not set'],
+      ['Number of labs', 'number_of_labs', 'Not set'],
+      ['Head / coordinator', 'coordinator_name', 'Not set'],
+    ],
+    metrics: [
+      ['Departments', '7'],
+      ['Labs', '18'],
+      ['Teachers', '46'],
+      ['Students', '1,240'],
+    ],
+    cards: [
+      ['Add department', 'Create institute departments or schools.'],
+      ['Add lab', 'Register labs, lab heads, and research areas.'],
+      ['View members', 'Review teachers, PhD scholars, lab assistants, and students.'],
+      ['Activity summary', 'View lab-wise classroom, assignment, attendance, and inventory summaries.'],
+    ],
+    tableTitle: 'Institute Lab Directory',
+    tableRows: [
+      ['Lab heads', 'Molecular diagnostics, cell culture, microbiology'],
+      ['Research areas', 'Genomics, immunology, fermentation, bioanalytics'],
+      ['Ongoing lab work', 'PCR training, ELISA batch, protein assay workshop'],
+      ['Lab-wise data', 'Member count, assignments, inventory readiness'],
+      ['Directory status', 'Prepared for live Supabase institute records'],
+    ],
+  },
+  admin: {
+    summary: [
+      ['Organization', 'organization', 'Not set'],
+      ['Reason for access', 'access_reason', 'Not set'],
+      ['Role', 'role', 'Admin'],
+      ['Bio', 'bio', 'Not added'],
+    ],
+    metrics: [
+      ['Role groups', '6'],
+      ['Institutes', '12'],
+      ['Labs tracked', '58'],
+      ['System notices', '4'],
+    ],
+    cards: [
+      ['Manage platform structure', 'Prepare role oversight for institutes, labs, and classrooms.'],
+      ['Review access', 'Admin code and organization fields are captured during signup.'],
+      ['Audit activity', 'Placeholder for future Supabase audit and moderation workflows.'],
+      ['Support users', 'Route platform operations without exposing wrong dashboards.'],
+    ],
+    tableTitle: 'Admin Control Snapshot',
+    tableRows: [
+      ['User roles', 'Student, teacher, PhD, lab assistant, institute, admin'],
+      ['Access control', 'Protected routes enforce dashboard ownership'],
+      ['Schema readiness', 'Core lab management tables are defined'],
+      ['Operations', 'Future support, review, and moderation workflows'],
+      ['System health', 'Build-ready frontend MVP foundation'],
     ],
   },
 };
@@ -282,6 +462,98 @@ const benefitGroups = [
   },
 ];
 
+const labGalleryCards = [
+  {
+    title: 'Molecular Biology Lab',
+    description: 'PCR, gel electrophoresis, cloning, and nucleic-acid workflow preparation.',
+    icon: Dna,
+  },
+  {
+    title: 'Cell Culture Lab',
+    description: 'Aseptic practice, culture handling, media preparation, and contamination awareness.',
+    icon: FlaskConical,
+  },
+  {
+    title: 'Microbiology Lab',
+    description: 'Sterile technique, bacterial handling, staining, plating, and observation workflows.',
+    icon: Microscope,
+  },
+  {
+    title: 'Instrumentation Lab',
+    description: 'Instrument readiness, calibration habits, maintenance records, and usage tracking.',
+    icon: Activity,
+  },
+  {
+    title: 'Biochemistry Lab',
+    description: 'Protein assays, enzyme workflows, buffers, reagents, and quantitative analysis.',
+    icon: Beaker,
+  },
+  {
+    title: 'Research Lab',
+    description: 'Project tracking, protocol notes, supervisor connections, and lab collaboration.',
+    icon: BrainCircuit,
+  },
+];
+
+const equipmentAnnouncements = [
+  { name: 'PCR Machine', icon: Dna },
+  { name: 'Gel Electrophoresis Unit', icon: Activity },
+  { name: 'Microscope', icon: Microscope },
+  { name: 'Centrifuge', icon: GaugeIcon },
+  { name: 'Laminar Air Flow', icon: Sparkles },
+  { name: 'Incubator', icon: Timer },
+  { name: 'Autoclave', icon: ShieldIcon },
+  { name: 'Spectrophotometer', icon: BarChart3 },
+  { name: 'Micropipette', icon: TestTube2 },
+  { name: 'ELISA Plate Reader', icon: ClipboardList },
+  { name: 'Water Bath', icon: Beaker },
+  { name: 'Biosafety Cabinet', icon: LockKeyhole },
+];
+
+const platformModules = [
+  { title: 'Virtual Experiments', icon: FlaskConical },
+  { title: 'Student Performance Tracking', icon: BarChart3 },
+  { title: 'Teacher Classroom Management', icon: BookOpenCheck },
+  { title: 'Attendance Management', icon: CalendarDays },
+  { title: 'Quiz and Certification', icon: FileCheck2 },
+  { title: 'Lab Inventory Management', icon: Boxes },
+  { title: 'PhD Research Profile', icon: BrainCircuit },
+  { title: 'Institute Lab Directory', icon: Landmark },
+];
+
+const roleExplainers = [
+  {
+    role: 'Student',
+    icon: GraduationCap,
+    description: 'Join classes, complete assigned experiments, attempt quizzes, track progress, and earn certificates.',
+  },
+  {
+    role: 'Teacher',
+    icon: BookOpenCheck,
+    description: 'Create lab groups, approve students, assign experiments, upload resources, and review performance.',
+  },
+  {
+    role: 'PhD Scholar',
+    icon: Microscope,
+    description: 'Maintain research profile, protocol notes, project details, publications, and lab records.',
+  },
+  {
+    role: 'Lab Assistant',
+    icon: Boxes,
+    description: 'Manage stock, equipment maintenance, reagent alerts, and lab updates after approval.',
+  },
+  {
+    role: 'Institute',
+    icon: Landmark,
+    description: 'Organize departments, labs, lab heads, members, research areas, and activity summaries.',
+  },
+  {
+    role: 'Admin',
+    icon: ShieldIcon,
+    description: 'Support controlled platform management, user oversight, and institutional operations.',
+  },
+];
+
 function GaugeIcon(props) {
   return <Timer {...props} />;
 }
@@ -341,7 +613,7 @@ function AppShell() {
       const fallbackProfile = buildProfileFromUser(currentUser);
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, role, institution, department, course, batch_year, entry_number, roll_number, lab_name, teacher_name, instructor_name, supervisor_name, pi_name, attendance_status, class_name, batch_name')
+        .select('id, user_id, full_name, email, mobile_number, role, course, batch_year, entry_number, roll_number, department, institute, institution, designation, subjects_taught, lab_name, teacher_name, instructor_name, supervisor_name, pi_name, research_area, current_project, publications_count, conferences_count, responsibility, experience, phd_year, number_of_labs, coordinator_name, official_email, organization, attendance_status, class_name, batch_name, bio')
         .eq('id', currentUser.id)
         .single();
 
@@ -556,16 +828,33 @@ function buildProfileFromUser(user) {
     full_name: metadata.full_name ?? user.email?.split('@')[0] ?? 'BioLabX User',
     role: normalizeRole(metadata.role),
     institution: metadata.institution ?? '',
+    institute: metadata.institute ?? metadata.institution ?? '',
     department: metadata.department ?? '',
+    email: user.email ?? metadata.email ?? '',
+    mobile_number: metadata.mobile_number ?? '',
     course: metadata.course ?? '',
     batch_year: metadata.batch_year ?? '',
     entry_number: metadata.entry_number ?? '',
     roll_number: metadata.roll_number ?? '',
+    designation: metadata.designation ?? '',
+    subjects_taught: metadata.subjects_taught ?? '',
     lab_name: metadata.lab_name ?? '',
     teacher_name: metadata.teacher_name ?? '',
     instructor_name: metadata.instructor_name ?? '',
     supervisor_name: metadata.supervisor_name ?? '',
     pi_name: metadata.pi_name ?? '',
+    research_area: metadata.research_area ?? '',
+    current_project: metadata.current_project ?? '',
+    publications_count: metadata.publications_count ?? '',
+    conferences_count: metadata.conferences_count ?? '',
+    responsibility: metadata.responsibility ?? '',
+    experience: metadata.experience ?? '',
+    phd_year: metadata.phd_year ?? '',
+    number_of_labs: metadata.number_of_labs ?? '',
+    coordinator_name: metadata.coordinator_name ?? '',
+    official_email: metadata.official_email ?? '',
+    organization: metadata.organization ?? '',
+    bio: metadata.bio ?? '',
     attendance_status: metadata.attendance_status ?? '',
     class_name: metadata.class_name ?? '',
     batch_name: metadata.batch_name ?? '',
@@ -890,15 +1179,46 @@ function LoginPage({ onNavigate, onAuthSuccess }) {
 }
 
 function SignupPage({ onNavigate, onAuthSuccess }) {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState('student');
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({
+    full_name: '',
+    email: '',
+    mobile_number: '',
+    role: 'student',
+    password: '',
+    confirm_password: '',
+  });
   const [status, setStatus] = useState({ type: 'idle', text: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const role = formData.role;
+
+  const updateField = (field, value) => {
+    setFormData((current) => ({ ...current, [field]: value }));
+    setStatus({ type: 'idle', text: '' });
+  };
+
+  const nextStep = () => {
+    if (step === 1 && (!formData.full_name || !formData.email || !formData.mobile_number || !formData.role)) {
+      setStatus({ type: 'error', text: 'Please complete all basic details before continuing.' });
+      return;
+    }
+
+    setStep((current) => Math.min(current + 1, 3));
+    setStatus({ type: 'idle', text: '' });
+  };
+
+  const previousStep = () => {
+    setStep((current) => Math.max(current - 1, 1));
+    setStatus({ type: 'idle', text: '' });
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (formData.password !== formData.confirm_password) {
+      setStatus({ type: 'error', text: 'Password and confirm password do not match.' });
+      return;
+    }
 
     if (!supabase) {
       setStatus({
@@ -911,14 +1231,12 @@ function SignupPage({ onNavigate, onAuthSuccess }) {
     setIsSubmitting(true);
     setStatus({ type: 'idle', text: '' });
 
+    const profilePayload = buildSignupProfilePayload(formData);
     const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+      email: formData.email,
+      password: formData.password,
       options: {
-        data: {
-          full_name: fullName,
-          role,
-        },
+        data: profilePayload,
       },
     });
 
@@ -929,11 +1247,20 @@ function SignupPage({ onNavigate, onAuthSuccess }) {
     }
 
     if (data.user) {
-      await supabase.from('profiles').upsert({
+      const fullProfilePayload = {
         id: data.user.id,
-        full_name: fullName,
-        role,
-      });
+        user_id: data.user.id,
+        ...profilePayload,
+      };
+      const { error: profileError } = await supabase.from('profiles').upsert(fullProfilePayload);
+
+      if (profileError) {
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          full_name: formData.full_name,
+          role,
+        });
+      }
     }
 
     setIsSubmitting(false);
@@ -957,54 +1284,62 @@ function SignupPage({ onNavigate, onAuthSuccess }) {
       icon={UserPlus}
     >
       <AuthSetupNotice />
+      <SignupStepIndicator step={step} />
       <form className="space-y-4" onSubmit={handleSubmit}>
-        <TextField
-          label="Full name"
-          value={fullName}
-          onChange={setFullName}
-          placeholder="Your name"
-          required
-        />
-        <TextField
-          label="Email"
-          type="email"
-          value={email}
-          onChange={setEmail}
-          placeholder="name@institution.edu"
-          required
-        />
-        <TextField
-          label="Password"
-          type="password"
-          value={password}
-          onChange={setPassword}
-          placeholder="Create a secure password"
-          required
-          minLength={6}
-        />
-        <label className="block">
-          <span className="text-sm font-bold text-slate-700">Role</span>
-          <select
-            className="mt-2 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-ink outline-none transition focus:border-lab-500 focus:ring-4 focus:ring-lab-100"
-            value={role}
-            onChange={(event) => setRole(event.target.value)}
-          >
-            {roleOptions.map((option) => (
-              <option key={option} value={option}>
-                {formatRole(option)}
-              </option>
-            ))}
-          </select>
-        </label>
+        {step === 1 && (
+          <>
+            <TextField label="Full Name" value={formData.full_name} onChange={(value) => updateField('full_name', value)} placeholder="Your full name" required />
+            <TextField label="Email" type="email" value={formData.email} onChange={(value) => updateField('email', value)} placeholder="name@institution.edu" required />
+            <TextField label="Mobile Number" value={formData.mobile_number} onChange={(value) => updateField('mobile_number', value)} placeholder="+91 98765 43210" required />
+            <SelectField
+              label="Select Role"
+              value={role}
+              onChange={(value) => updateField('role', value)}
+              options={roleOptions.map((option) => ({ value: option, label: formatRole(option) }))}
+            />
+          </>
+        )}
+
+        {step === 2 && <RoleSpecificSignupFields role={role} formData={formData} updateField={updateField} />}
+
+        {step === 3 && (
+          <>
+            <TextField label="Password" type="password" value={formData.password} onChange={(value) => updateField('password', value)} placeholder="Create a secure password" required minLength={6} />
+            <TextField label="Confirm Password" type="password" value={formData.confirm_password} onChange={(value) => updateField('confirm_password', value)} placeholder="Re-enter your password" required minLength={6} />
+          </>
+        )}
+
         <AuthStatus status={status} />
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-lab-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-lab-600 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <UserPlus size={17} />
-          {isSubmitting ? 'Creating account...' : 'Signup'}
-        </button>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {step > 1 && (
+            <button
+              type="button"
+              onClick={previousStep}
+              className="inline-flex flex-1 items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+            >
+              Back
+            </button>
+          )}
+          {step < 3 ? (
+            <button
+              type="button"
+              onClick={nextStep}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-lab-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-lab-600"
+            >
+              Continue
+              <ChevronRight size={17} />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-lab-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-lab-600 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <UserPlus size={17} />
+              {isSubmitting ? 'Creating account...' : 'Create Account'}
+            </button>
+          )}
+        </div>
       </form>
       <AuthLinkRow
         primaryText="Already have an account?"
@@ -1129,6 +1464,41 @@ function TextField({ label, value, onChange, ...inputProps }) {
   );
 }
 
+function SelectField({ label, value, onChange, options, ...selectProps }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <select
+        className="mt-2 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-ink outline-none transition focus:border-lab-500 focus:ring-4 focus:ring-lab-100"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        {...selectProps}
+      >
+        <option value="">Select {label}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function TextAreaField({ label, value, onChange, ...textareaProps }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <textarea
+        className="mt-2 min-h-28 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-ink outline-none transition placeholder:text-slate-400 focus:border-lab-500 focus:ring-4 focus:ring-lab-100"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        {...textareaProps}
+      />
+    </label>
+  );
+}
+
 function AuthStatus({ status }) {
   if (!status.text) {
     return null;
@@ -1164,7 +1534,8 @@ function AuthLinkRow({ primaryText, primaryAction, onPrimary, secondaryAction, o
 }
 
 function formatRole(role) {
-  return normalizeRole(role)
+  const normalizedRole = normalizeRole(role);
+  return roleLabels[normalizedRole] ?? normalizedRole
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
@@ -1174,55 +1545,34 @@ function HomePage({ onNavigate }) {
   return (
     <div className="bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:py-20 lg:grid-cols-[1.08fr_0.92fr] lg:items-center lg:px-8">
           <div>
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-lab-100 bg-lab-50 px-3 py-1 text-sm font-bold text-lab-700">
               <Sparkles size={16} />
-              AI-powered virtual biotechnology lab
+              Role-based biotechnology learning and lab management
             </div>
             <h1 className="max-w-4xl text-4xl font-bold leading-tight text-ink sm:text-5xl lg:text-6xl">
-              Practice Biotechnology Experiments Before Entering the Real Lab
+              BioLabX - Virtual Biotechnology Lab & Learning Platform
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
-              AI-powered virtual lab training platform for B.Sc, M.Sc, B.Tech, PhD students,
-              teachers, and lab assistants.
+              A platform for students, teachers, PhD scholars, lab assistants, and institutes to
+              learn, simulate, manage, and track biotechnology laboratory work.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button
-                onClick={() => onNavigate('student')}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-lab-700 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-lab-600"
-              >
-                Start Learning
-                <ChevronRight size={18} />
-              </button>
-              <button
                 onClick={() => onNavigate('experiments')}
-                className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-6 py-3 text-sm font-bold text-ink transition hover:border-lab-200 hover:bg-lab-50"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-lab-700 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-lab-600"
               >
                 Explore Experiments
                 <BookOpenCheck size={18} />
               </button>
-            </div>
-            <div className="mt-4 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-semibold text-slate-600">
-                Already using BioLabX or creating a new account?
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <button
-                  onClick={() => onNavigate('login')}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
-                >
-                  <LockKeyhole size={16} />
-                  Login
-                </button>
-                <button
-                  onClick={() => onNavigate('signup')}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-ink px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-700"
-                >
-                  <UserPlus size={16} />
-                  Sign Up
-                </button>
-              </div>
+              <button
+                onClick={() => onNavigate('signup')}
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-6 py-3 text-sm font-bold text-ink transition hover:border-lab-200 hover:bg-lab-50"
+              >
+                Create Account
+                <UserPlus size={18} />
+              </button>
             </div>
           </div>
 
@@ -1262,14 +1612,52 @@ function HomePage({ onNavigate }) {
         </div>
       </section>
 
+      <EquipmentMarquee />
+
       <HomeSection
-        eyebrow="Problems We Solve"
-        title="Prepare learners for real laboratory confidence"
-        description="BioLabX focuses on the practical gaps students face before they touch real samples, instruments, and protocols."
+        eyebrow="What is BioLabX?"
+        title="A practical operating layer for biotechnology learning"
+        description="BioLabX helps biotechnology and life-science learners practice experiments, understand lab workflows, track performance, manage classes, labs, inventory, and connect with teachers, supervisors, and institute labs."
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <IconCard icon={FlaskConical} title="Learn and simulate" text="Students rehearse workflows before entering a real laboratory." />
+          <IconCard icon={Users} title="Connect academic roles" text="Teachers, supervisors, lab assistants, and institutes can work around shared lab activity." />
+          <IconCard icon={BarChart3} title="Track laboratory readiness" text="Progress, quiz scores, attendance, certificates, inventory, and research records become organized." />
+        </div>
+      </HomeSection>
+
+      <HomeSection
+        eyebrow="Lab Gallery"
+        title="Designed around real academic laboratory environments"
+        description="BioLabX uses clean lab-area cards to help learners understand where each training workflow belongs."
+      >
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {labGalleryCards.map((card) => (
+            <LabGalleryCard key={card.title} card={card} />
+          ))}
+        </div>
+      </HomeSection>
+
+      <HomeSection
+        eyebrow="Platform Modules"
+        title="One foundation for learning, teaching, research, and lab operations"
+        description="Each module is structured for future live Supabase data while staying simple and academic in this MVP."
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {problemCards.map((card) => (
-            <IconCard key={card.title} icon={card.icon} title={card.title} />
+          {platformModules.map((module) => (
+            <IconCard key={module.title} icon={module.icon} title={module.title} />
+          ))}
+        </div>
+      </HomeSection>
+
+      <HomeSection
+        eyebrow="User Roles"
+        title="Role-aware dashboards for every biotechnology lab stakeholder"
+        description="Every account starts with a role so BioLabX can show the right dashboard, workflows, and future permissions."
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {roleExplainers.map((role) => (
+            <IconCard key={role.role} icon={role.icon} title={role.role} text={role.description} />
           ))}
         </div>
       </HomeSection>
@@ -1316,13 +1704,17 @@ function HomePage({ onNavigate }) {
             <Microscope size={25} />
           </div>
           <h2 className="mx-auto mt-5 max-w-3xl text-3xl font-bold leading-tight text-ink sm:text-4xl">
-            Start Practicing Before Entering a Real Laboratory
+            Understand the platform, choose your role, and start structured lab training
           </h2>
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+            Create an account after exploring the modules so BioLabX can route you to the right learning,
+            teaching, research, or lab management workspace.
+          </p>
           <button
-            onClick={() => onNavigate('student')}
+            onClick={() => onNavigate('signup')}
             className="mt-7 inline-flex items-center justify-center gap-2 rounded-md bg-ink px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-slate-700"
           >
-            Launch BioLabX
+            Create Account
             <ChevronRight size={18} />
           </button>
         </div>
@@ -1343,6 +1735,47 @@ function HomeSection({ eyebrow, title, description, children }) {
         {children}
       </div>
     </section>
+  );
+}
+
+function EquipmentMarquee() {
+  const repeatedItems = [...equipmentAnnouncements, ...equipmentAnnouncements];
+
+  return (
+    <section className="overflow-hidden border-b border-slate-200 bg-white py-4">
+      <div className="flex min-w-max animate-equipment-marquee gap-3">
+        {repeatedItems.map((item, index) => {
+          const Icon = item.icon;
+          return (
+            <div
+              key={`${item.name}-${index}`}
+              className="inline-flex items-center gap-2 rounded-full border border-lab-100 bg-lab-50 px-4 py-2 text-sm font-bold text-lab-800"
+            >
+              <Icon size={17} />
+              {item.name}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function LabGalleryCard({ card }) {
+  const Icon = card.icon;
+
+  return (
+    <article className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="flex h-36 items-center justify-center bg-gradient-to-br from-lab-50 via-white to-slate-100">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full border border-lab-100 bg-white text-lab-700 shadow-sm">
+          <Icon size={36} />
+        </div>
+      </div>
+      <div className="p-5">
+        <h3 className="text-lg font-bold text-ink">{card.title}</h3>
+        <p className="mt-2 text-sm leading-6 text-slate-600">{card.description}</p>
+      </div>
+    </article>
   );
 }
 
@@ -1412,6 +1845,131 @@ function BenefitCard({ group }) {
   );
 }
 
+function SignupStepIndicator({ step }) {
+  return (
+    <div className="mb-5 grid gap-2 sm:grid-cols-3">
+      {['Basic Details', 'Role Details', 'Security'].map((label, index) => {
+        const stepNumber = index + 1;
+        return (
+          <div
+            key={label}
+            className={`rounded-md border p-3 text-sm font-bold ${
+              step === stepNumber
+                ? 'border-lab-200 bg-lab-50 text-lab-700'
+                : 'border-slate-200 bg-slate-50 text-slate-500'
+            }`}
+          >
+            Step {stepNumber}: {label}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RoleSpecificSignupFields({ role, formData, updateField }) {
+  const roleFields = {
+    student: [
+      { name: 'course', label: 'Course', type: 'select', options: ['BSc', 'MSc', 'BTech', 'MTech', 'PhD', 'Intern', 'Other'] },
+      { name: 'batch_year', label: 'Batch Year' },
+      { name: 'entry_number', label: 'Entry Number / Roll Number' },
+      { name: 'department', label: 'Department' },
+      { name: 'institute', label: 'Institute / University' },
+      { name: 'bio', label: 'Short Bio', type: 'textarea' },
+    ],
+    teacher: [
+      { name: 'designation', label: 'Designation' },
+      { name: 'department', label: 'Department' },
+      { name: 'institute', label: 'Institute / University' },
+      { name: 'subjects_taught', label: 'Subjects / Lab Courses Taught' },
+      { name: 'lab_name', label: 'Lab Name' },
+      { name: 'bio', label: 'Short Bio', type: 'textarea' },
+    ],
+    phd: [
+      { name: 'phd_year', label: 'Year of PhD' },
+      { name: 'department', label: 'Department' },
+      { name: 'institute', label: 'Institute / University' },
+      { name: 'supervisor_name', label: 'Supervisor / PI Name' },
+      { name: 'lab_name', label: 'Lab Name' },
+      { name: 'research_area', label: 'Research Area' },
+      { name: 'current_project', label: 'Current Project Title' },
+      { name: 'publications_count', label: 'Publications Count', type: 'number' },
+      { name: 'conferences_count', label: 'Conferences Count', type: 'number' },
+      { name: 'bio', label: 'Short Bio', type: 'textarea' },
+    ],
+    lab_assistant: [
+      { name: 'department', label: 'Department' },
+      { name: 'institute', label: 'Institute / University' },
+      { name: 'lab_name', label: 'Lab Name' },
+      { name: 'responsibility', label: 'Responsibility / Work Area' },
+      { name: 'experience', label: 'Experience' },
+      { name: 'bio', label: 'Short Bio', type: 'textarea' },
+    ],
+    institute: [
+      { name: 'institute', label: 'Institute / University Name' },
+      { name: 'department', label: 'Department / School Name' },
+      { name: 'number_of_labs', label: 'Number of Labs', type: 'number' },
+      { name: 'coordinator_name', label: 'Head / Coordinator Name' },
+      { name: 'official_email', label: 'Official Email', type: 'email' },
+      { name: 'bio', label: 'Short Description', type: 'textarea' },
+    ],
+    admin: [
+      { name: 'admin_code', label: 'Admin Code', placeholder: 'Enter admin access code' },
+      { name: 'organization', label: 'Organization' },
+      { name: 'access_reason', label: 'Reason for Access', type: 'textarea' },
+    ],
+  };
+
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-md border border-lab-100 bg-lab-50 p-3 text-sm font-semibold text-lab-800">
+        Selected role: {formatRole(role)}
+      </div>
+      {roleFields[role].map((field) => {
+        if (field.type === 'textarea') {
+          return (
+            <TextAreaField
+              key={field.name}
+              label={field.label}
+              value={formData[field.name] ?? ''}
+              onChange={(value) => updateField(field.name, value)}
+              placeholder={field.placeholder ?? field.label}
+            />
+          );
+        }
+
+        if (field.type === 'select') {
+          return (
+            <SelectField
+              key={field.name}
+              label={field.label}
+              value={formData[field.name] ?? ''}
+              onChange={(value) => updateField(field.name, value)}
+              options={field.options.map((option) => ({ value: option, label: option }))}
+            />
+          );
+        }
+
+        return (
+          <TextField
+            key={field.name}
+            label={field.label}
+            type={field.type ?? 'text'}
+            value={formData[field.name] ?? ''}
+            onChange={(value) => updateField(field.name, value)}
+            placeholder={field.placeholder ?? field.label}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function buildSignupProfilePayload(formData) {
+  const { confirm_password, password, ...profilePayload } = formData;
+  return profilePayload;
+}
+
 function RoleDashboard({ role, profile }) {
   const config = roleDashboardConfig[role] ?? roleDashboardConfig.student;
   const Icon = config.icon;
@@ -1473,6 +2031,8 @@ function RoleDashboard({ role, profile }) {
         ))}
       </div>
 
+      <RoleDashboardWorkspace role={role} profile={profile} />
+
       <Panel title="Profile Data" subtitle="Live role data loaded from Supabase profiles when configured.">
         <div className="grid gap-3 text-sm md:grid-cols-2">
           <ProfileFact label="Full name" value={profile?.full_name ?? 'Not set'} />
@@ -1483,6 +2043,76 @@ function RoleDashboard({ role, profile }) {
       </Panel>
     </PageShell>
   );
+}
+
+function RoleDashboardWorkspace({ role, profile }) {
+  const workspace = roleDashboardWorkspaces[role] ?? roleDashboardWorkspaces.student;
+
+  return (
+    <>
+      <Panel title="Profile Summary" subtitle="Role-aware live profile details from signup and Supabase profiles.">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {workspace.summary.map(([label, field, fallback]) => (
+            <ProfileFact key={label} label={label} value={profileDisplayValue(profile, field, fallback)} />
+          ))}
+        </div>
+        <button className="mt-4 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700">
+          <UserPlus size={17} />
+          Edit profile
+        </button>
+      </Panel>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {workspace.metrics.map(([label, value]) => (
+          <MetricCard
+            key={label}
+            icon={BarChart3}
+            label={label}
+            value={dashboardMetricValue(profile, value)}
+          />
+        ))}
+      </div>
+
+      <Panel title="Available Actions" subtitle="MVP-ready actions with dummy data and production-oriented structure.">
+        <div className="grid gap-4 md:grid-cols-2">
+          {workspace.cards.map(([title, description]) => (
+            <article key={title} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <h3 className="font-bold text-ink">{title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+            </article>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel title={workspace.tableTitle} subtitle="Clean operational view prepared for live database records.">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[620px] border-collapse text-left">
+            <tbody>
+              {workspace.tableRows.map(([label, value]) => (
+                <tr key={label} className="border-b border-slate-100 last:border-0">
+                  <th className="py-3 pr-4 text-sm font-bold text-ink">{label}</th>
+                  <td className="py-3 text-sm leading-6 text-slate-600">{value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+    </>
+  );
+}
+
+function profileDisplayValue(profile, field, fallback) {
+  const value = profile?.[field];
+  return value !== undefined && value !== null && `${value}`.trim() !== '' ? value : fallback;
+}
+
+function dashboardMetricValue(profile, value) {
+  if (profile?.[value] !== undefined && profile?.[value] !== null && `${profile[value]}`.trim() !== '') {
+    return profile[value];
+  }
+
+  return value.endsWith('_count') ? '0' : value;
 }
 
 function ProfileFact({ label, value }) {
@@ -1770,6 +2400,7 @@ function ExperimentDetailPage({ user, profile, onNavigate }) {
       <ExperimentListSection title="Step-by-Step Procedure" items={experiment.procedure} ordered />
       <ExperimentListSection title="Common Mistakes" items={experiment.commonMistakes} />
       <EducationalVideo experiment={experiment} />
+      <ThreeDVideoSection experiment={experiment} />
       <Interactive3DSimulation
         experiment={experiment}
         onComplete={() => setSimulationComplete(true)}
@@ -1837,6 +2468,24 @@ function EducationalVideo({ experiment }) {
           </div>
         </div>
       )}
+    </Panel>
+  );
+}
+
+function ThreeDVideoSection({ experiment }) {
+  return (
+    <Panel title="3D Video Section" subtitle="Prepared for institution-approved three-dimensional protocol walkthroughs">
+      <div className="flex min-h-40 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
+        <div>
+          <PlayCircle className="mx-auto text-lab-700" size={34} />
+          <p className="mt-3 text-sm font-semibold text-ink">
+            3D video walkthrough placeholder for {experiment.title}.
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            A verified 3D educational video can be connected here when the institute provides content.
+          </p>
+        </div>
+      </div>
     </Panel>
   );
 }
