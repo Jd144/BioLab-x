@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -20,6 +20,9 @@ import {
   Home,
   Landmark,
   Lightbulb,
+  LockKeyhole,
+  LogOut,
+  Mail,
   Menu,
   Microscope,
   PlayCircle,
@@ -27,9 +30,11 @@ import {
   Sparkles,
   Timer,
   TestTube2,
+  UserPlus,
   Users,
   X,
 } from 'lucide-react';
+import { isSupabaseConfigured, supabase } from './lib/supabaseClient';
 
 const pages = [
   { id: 'home', label: 'Home', icon: Home },
@@ -39,6 +44,22 @@ const pages = [
   { id: 'teacher', label: 'Teacher Dashboard', icon: ClipboardList },
   { id: 'inventory', label: 'Inventory', icon: Boxes },
 ];
+
+const protectedPages = ['student', 'teacher', 'inventory'];
+
+const routeLabels = {
+  home: 'Home',
+  student: 'Student Dashboard',
+  experiments: 'Experiments',
+  gel: 'Gel Simulator',
+  teacher: 'Teacher Dashboard',
+  inventory: 'Inventory',
+  login: 'Login',
+  signup: 'Signup',
+  forgot: 'Forgot Password',
+};
+
+const roleOptions = ['student', 'teacher', 'lab_assistant', 'admin'];
 
 const experiments = [
   {
@@ -201,17 +222,77 @@ function GaugeIcon(props) {
 function App() {
   const [activePage, setActivePage] = useState('home');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [redirectAfterAuth, setRedirectAfterAuth] = useState('student');
   const ActiveIcon = pages.find((page) => page.id === activePage)?.icon ?? Home;
 
   const pageTitle = useMemo(
-    () => pages.find((page) => page.id === activePage)?.label ?? 'Home',
+    () => routeLabels[activePage] ?? 'Home',
     [activePage],
   );
+  const user = session?.user ?? null;
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthLoading(false);
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (isMounted) {
+        setSession(data.session);
+        setAuthLoading(false);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const goToPage = (pageId) => {
+    if (protectedPages.includes(pageId) && !user) {
+      setRedirectAfterAuth(pageId);
+      setActivePage('login');
+      setIsMenuOpen(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     setActivePage(pageId);
     setIsMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleAuthSuccess = (nextSession) => {
+    if (nextSession) {
+      setSession(nextSession);
+    }
+
+    setActivePage(redirectAfterAuth);
+    setIsMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSignOut = async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+
+    setSession(null);
+    setActivePage('home');
+    setIsMenuOpen(false);
   };
 
   return (
@@ -219,6 +300,8 @@ function App() {
       <Navbar
         activePage={activePage}
         isMenuOpen={isMenuOpen}
+        user={user}
+        onSignOut={handleSignOut}
         onMenuToggle={() => setIsMenuOpen((open) => !open)}
         onNavigate={goToPage}
       />
@@ -238,17 +321,36 @@ function App() {
         )}
 
         {activePage === 'home' && <HomePage onNavigate={goToPage} />}
-        {activePage === 'student' && <StudentDashboard />}
+        {activePage === 'login' && (
+          <LoginPage onNavigate={goToPage} onAuthSuccess={handleAuthSuccess} />
+        )}
+        {activePage === 'signup' && (
+          <SignupPage onNavigate={goToPage} onAuthSuccess={handleAuthSuccess} />
+        )}
+        {activePage === 'forgot' && <ForgotPasswordPage onNavigate={goToPage} />}
+        {activePage === 'student' && (
+          <ProtectedRoute isLoading={authLoading} user={user} onNavigate={goToPage}>
+            <StudentDashboard />
+          </ProtectedRoute>
+        )}
         {activePage === 'experiments' && <ExperimentsPage />}
         {activePage === 'gel' && <GelSimulator />}
-        {activePage === 'teacher' && <TeacherDashboard />}
-        {activePage === 'inventory' && <InventoryPage />}
+        {activePage === 'teacher' && (
+          <ProtectedRoute isLoading={authLoading} user={user} onNavigate={goToPage}>
+            <TeacherDashboard />
+          </ProtectedRoute>
+        )}
+        {activePage === 'inventory' && (
+          <ProtectedRoute isLoading={authLoading} user={user} onNavigate={goToPage}>
+            <InventoryPage />
+          </ProtectedRoute>
+        )}
       </main>
     </div>
   );
 }
 
-function Navbar({ activePage, isMenuOpen, onMenuToggle, onNavigate }) {
+function Navbar({ activePage, isMenuOpen, user, onSignOut, onMenuToggle, onNavigate }) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
@@ -282,6 +384,30 @@ function Navbar({ activePage, isMenuOpen, onMenuToggle, onNavigate }) {
           ))}
         </div>
 
+        <div className="hidden items-center gap-2 lg:flex">
+          {user ? (
+            <button
+              onClick={onSignOut}
+              className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-100"
+            >
+              <LogOut size={17} />
+              Sign out
+            </button>
+          ) : (
+            <button
+              onClick={() => onNavigate('login')}
+              className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-bold transition ${
+                activePage === 'login'
+                  ? 'bg-lab-50 text-lab-700'
+                  : 'bg-ink text-white hover:bg-slate-700'
+              }`}
+            >
+              <LockKeyhole size={17} />
+              Login
+            </button>
+          )}
+        </div>
+
         <button
           className="flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 bg-white text-ink lg:hidden"
           onClick={onMenuToggle}
@@ -311,11 +437,421 @@ function Navbar({ activePage, isMenuOpen, onMenuToggle, onNavigate }) {
                 </button>
               );
             })}
+            {user ? (
+              <button
+                onClick={onSignOut}
+                className="flex items-center gap-3 rounded-md px-3 py-3 text-left text-sm font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                <LogOut size={18} />
+                Sign out
+              </button>
+            ) : (
+              <button
+                onClick={() => onNavigate('login')}
+                className={`flex items-center gap-3 rounded-md px-3 py-3 text-left text-sm font-semibold ${
+                  activePage === 'login' ? 'bg-lab-50 text-lab-700' : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <LockKeyhole size={18} />
+                Login
+              </button>
+            )}
           </div>
         </div>
       )}
     </header>
   );
+}
+
+function ProtectedRoute({ isLoading, user, onNavigate, children }) {
+  useEffect(() => {
+    if (!isLoading && !user) {
+      onNavigate('login');
+    }
+  }, [isLoading, onNavigate, user]);
+
+  if (isLoading) {
+    return (
+      <PageShell>
+        <Panel title="Checking access" subtitle="Verifying your session with Supabase.">
+          <p className="text-sm font-medium text-slate-600">Please wait...</p>
+        </Panel>
+      </PageShell>
+    );
+  }
+
+  if (!user) {
+    return (
+      <PageShell>
+        <Panel title="Login required" subtitle="Redirecting to the login page.">
+          <p className="text-sm font-medium text-slate-600">
+            Student Dashboard, Teacher Dashboard, and Inventory require an authenticated account.
+          </p>
+        </Panel>
+      </PageShell>
+    );
+  }
+
+  return children;
+}
+
+function LoginPage({ onNavigate, onAuthSuccess }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [status, setStatus] = useState({ type: 'idle', text: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!supabase) {
+      setStatus({
+        type: 'error',
+        text: 'Supabase is not configured yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local.',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatus({ type: 'idle', text: '' });
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    setIsSubmitting(false);
+
+    if (error) {
+      setStatus({ type: 'error', text: error.message });
+      return;
+    }
+
+    setStatus({ type: 'success', text: 'Login successful. Redirecting...' });
+    onAuthSuccess(data.session);
+  };
+
+  return (
+    <AuthPageShell
+      title="Login to BioLabX"
+      subtitle="Access protected dashboards and production-ready lab workflows."
+      icon={LockKeyhole}
+    >
+      <AuthSetupNotice />
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <TextField
+          label="Email"
+          type="email"
+          value={email}
+          onChange={setEmail}
+          placeholder="student@university.edu"
+          required
+        />
+        <TextField
+          label="Password"
+          type="password"
+          value={password}
+          onChange={setPassword}
+          placeholder="Enter your password"
+          required
+        />
+        <AuthStatus status={status} />
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-lab-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-lab-600 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <LockKeyhole size={17} />
+          {isSubmitting ? 'Signing in...' : 'Login'}
+        </button>
+      </form>
+      <AuthLinkRow
+        primaryText="Need an account?"
+        primaryAction="Create one"
+        onPrimary={() => onNavigate('signup')}
+        secondaryAction="Forgot password?"
+        onSecondary={() => onNavigate('forgot')}
+      />
+    </AuthPageShell>
+  );
+}
+
+function SignupPage({ onNavigate, onAuthSuccess }) {
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('student');
+  const [status, setStatus] = useState({ type: 'idle', text: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!supabase) {
+      setStatus({
+        type: 'error',
+        text: 'Supabase is not configured yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local.',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatus({ type: 'idle', text: '' });
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          role,
+        },
+      },
+    });
+
+    if (error) {
+      setIsSubmitting(false);
+      setStatus({ type: 'error', text: error.message });
+      return;
+    }
+
+    if (data.user) {
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        full_name: fullName,
+        role,
+      });
+    }
+
+    setIsSubmitting(false);
+
+    if (data.session) {
+      setStatus({ type: 'success', text: 'Account created. Redirecting...' });
+      onAuthSuccess(data.session);
+      return;
+    }
+
+    setStatus({
+      type: 'success',
+      text: 'Account created. Check your email to confirm your BioLabX account.',
+    });
+  };
+
+  return (
+    <AuthPageShell
+      title="Create your BioLabX account"
+      subtitle="Set up a role-ready profile for future student, teacher, lab assistant, and admin workflows."
+      icon={UserPlus}
+    >
+      <AuthSetupNotice />
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <TextField
+          label="Full name"
+          value={fullName}
+          onChange={setFullName}
+          placeholder="Your name"
+          required
+        />
+        <TextField
+          label="Email"
+          type="email"
+          value={email}
+          onChange={setEmail}
+          placeholder="name@institution.edu"
+          required
+        />
+        <TextField
+          label="Password"
+          type="password"
+          value={password}
+          onChange={setPassword}
+          placeholder="Create a secure password"
+          required
+          minLength={6}
+        />
+        <label className="block">
+          <span className="text-sm font-bold text-slate-700">Role</span>
+          <select
+            className="mt-2 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-ink outline-none transition focus:border-lab-500 focus:ring-4 focus:ring-lab-100"
+            value={role}
+            onChange={(event) => setRole(event.target.value)}
+          >
+            {roleOptions.map((option) => (
+              <option key={option} value={option}>
+                {formatRole(option)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <AuthStatus status={status} />
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-lab-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-lab-600 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <UserPlus size={17} />
+          {isSubmitting ? 'Creating account...' : 'Signup'}
+        </button>
+      </form>
+      <AuthLinkRow
+        primaryText="Already have an account?"
+        primaryAction="Login"
+        onPrimary={() => onNavigate('login')}
+      />
+    </AuthPageShell>
+  );
+}
+
+function ForgotPasswordPage({ onNavigate }) {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState({ type: 'idle', text: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!supabase) {
+      setStatus({
+        type: 'error',
+        text: 'Supabase is not configured yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env.local.',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatus({ type: 'idle', text: '' });
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+
+    setIsSubmitting(false);
+
+    if (error) {
+      setStatus({ type: 'error', text: error.message });
+      return;
+    }
+
+    setStatus({ type: 'success', text: 'Password reset email sent.' });
+  };
+
+  return (
+    <AuthPageShell
+      title="Reset your password"
+      subtitle="Send a secure reset link using Supabase authentication."
+      icon={Mail}
+    >
+      <AuthSetupNotice />
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <TextField
+          label="Email"
+          type="email"
+          value={email}
+          onChange={setEmail}
+          placeholder="name@institution.edu"
+          required
+        />
+        <AuthStatus status={status} />
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-lab-700 px-4 py-3 text-sm font-bold text-white transition hover:bg-lab-600 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Mail size={17} />
+          {isSubmitting ? 'Sending...' : 'Send Reset Link'}
+        </button>
+      </form>
+      <AuthLinkRow
+        primaryText="Remembered your password?"
+        primaryAction="Back to Login"
+        onPrimary={() => onNavigate('login')}
+      />
+    </AuthPageShell>
+  );
+}
+
+function AuthPageShell({ title, subtitle, icon: Icon, children }) {
+  return (
+    <section className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8">
+      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-lab-50 text-lab-700">
+          <Icon size={24} />
+        </div>
+        <h2 className="mt-5 text-3xl font-bold leading-tight text-ink">{title}</h2>
+        <p className="mt-3 text-base leading-7 text-slate-600">{subtitle}</p>
+        <div className="mt-6 rounded-md bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+          BioLabX now uses a real Supabase-ready authentication foundation. Protected pages stay
+          locked until a user signs in.
+        </div>
+      </div>
+      <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">{children}</div>
+    </section>
+  );
+}
+
+function AuthSetupNotice() {
+  if (isSupabaseConfigured) {
+    return null;
+  }
+
+  return (
+    <div className="mb-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-medium leading-6 text-amber-800">
+      Supabase environment variables are not set yet. Copy .env.example to .env.local and add your
+      project URL and anon key.
+    </div>
+  );
+}
+
+function TextField({ label, value, onChange, ...inputProps }) {
+  return (
+    <label className="block">
+      <span className="text-sm font-bold text-slate-700">{label}</span>
+      <input
+        className="mt-2 w-full rounded-md border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-ink outline-none transition placeholder:text-slate-400 focus:border-lab-500 focus:ring-4 focus:ring-lab-100"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        {...inputProps}
+      />
+    </label>
+  );
+}
+
+function AuthStatus({ status }) {
+  if (!status.text) {
+    return null;
+  }
+
+  return (
+    <p
+      className={`rounded-md p-3 text-sm font-semibold ${
+        status.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+      }`}
+    >
+      {status.text}
+    </p>
+  );
+}
+
+function AuthLinkRow({ primaryText, primaryAction, onPrimary, secondaryAction, onSecondary }) {
+  return (
+    <div className="mt-5 flex flex-col gap-3 text-sm font-semibold text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+      <span>
+        {primaryText}{' '}
+        <button className="text-lab-700 hover:text-lab-600" onClick={onPrimary} type="button">
+          {primaryAction}
+        </button>
+      </span>
+      {secondaryAction && (
+        <button className="text-left text-lab-700 hover:text-lab-600" onClick={onSecondary} type="button">
+          {secondaryAction}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function formatRole(role) {
+  return role
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function HomePage({ onNavigate }) {
@@ -654,6 +1190,11 @@ function GelSimulator() {
 
   return (
     <PageShell>
+      <div className="rounded-lg border border-lab-100 bg-lab-50 p-4 text-sm font-semibold leading-6 text-lab-700">
+        Gel Electrophoresis remains public for open practice. The Supabase foundation is ready to
+        save progress to student_progress after login in a future iteration.
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[0.95fr_1.35fr]">
         <Panel title="Simulation Setup" subtitle="Configure a dummy gel electrophoresis run">
           <div className="grid gap-4">
