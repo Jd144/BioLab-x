@@ -46,22 +46,22 @@ import { isSupabaseConfigured, supabase } from './lib/supabaseClient';
 
 const pages = [
   { id: 'home', label: 'Home', icon: Home, path: '/' },
-  { id: 'student', label: 'Student Dashboard', icon: GraduationCap, path: '/student-dashboard' },
   { id: 'experiments', label: 'Experiments', icon: FlaskConical, path: '/experiments' },
   { id: 'gel', label: 'Gel Simulator', icon: Activity, path: '/gel-electrophoresis' },
-  { id: 'teacher', label: 'Teacher Dashboard', icon: ClipboardList, path: '/teacher-dashboard' },
-  { id: 'inventory', label: 'Inventory', icon: Boxes, path: '/inventory' },
 ];
 
-const protectedPages = ['student', 'teacher', 'inventory'];
+const dashboardRoles = ['student', 'teacher', 'lab_assistant', 'phd', 'institute', 'admin'];
 
 const routePaths = {
   home: '/',
-  student: '/student-dashboard',
+  student: '/student',
   experiments: '/experiments',
   gel: '/gel-electrophoresis',
-  teacher: '/teacher-dashboard',
-  inventory: '/inventory',
+  teacher: '/teacher',
+  lab_assistant: '/lab-assistant',
+  phd: '/phd',
+  institute: '/institute',
+  admin: '/admin',
   login: '/login',
   signup: '/signup',
   forgot: '/forgot-password',
@@ -73,13 +73,79 @@ const routeLabels = {
   experiments: 'Experiments',
   gel: 'Gel Simulator',
   teacher: 'Teacher Dashboard',
-  inventory: 'Inventory',
+  lab_assistant: 'Lab Assistant Dashboard',
+  phd: 'PhD Dashboard',
+  institute: 'Institute Dashboard',
+  admin: 'Admin Dashboard',
   login: 'Login',
   signup: 'Sign Up',
   forgot: 'Forgot Password',
 };
 
-const roleOptions = ['student', 'teacher', 'lab_assistant', 'admin'];
+const roleOptions = ['student', 'teacher', 'lab_assistant', 'phd', 'institute', 'admin'];
+
+const roleDashboardConfig = {
+  student: {
+    title: 'Student Dashboard',
+    subtitle: 'Your BioLabX learning workspace.',
+    icon: GraduationCap,
+    cards: [
+      { label: 'Practice modules', value: '6', detail: 'Start with public experiments and guided simulations.' },
+      { label: 'Learning role', value: 'Student', detail: 'Access is limited to student learning tools.' },
+      { label: 'Next action', value: 'Gel practice', detail: 'Try the public gel simulator before saving progress later.' },
+    ],
+  },
+  teacher: {
+    title: 'Teacher Dashboard',
+    subtitle: 'A focused teaching workspace for future class oversight.',
+    icon: ClipboardList,
+    cards: [
+      { label: 'Role access', value: 'Teacher', detail: 'Students cannot view this dashboard.' },
+      { label: 'Planned tools', value: 'Class setup', detail: 'Classroom and attendance features are intentionally not built yet.' },
+      { label: 'Preparation', value: 'Experiments', detail: 'Use the public library to plan pre-lab practice.' },
+    ],
+  },
+  lab_assistant: {
+    title: 'Lab Assistant Dashboard',
+    subtitle: 'Operational readiness view for laboratory support roles.',
+    icon: Boxes,
+    cards: [
+      { label: 'Role access', value: 'Assistant', detail: 'Designed for lab preparation and support workflows.' },
+      { label: 'Next phase', value: 'Equipment', detail: 'Advanced inventory and maintenance are deferred for later.' },
+      { label: 'Focus', value: 'Safety', detail: 'Use simulations to rehearse routine lab processes.' },
+    ],
+  },
+  phd: {
+    title: 'PhD Dashboard',
+    subtitle: 'Research training foundation for advanced learners.',
+    icon: Microscope,
+    cards: [
+      { label: 'Role access', value: 'PhD', detail: 'Advanced research workflows can be added later.' },
+      { label: 'Practice area', value: 'Methods', detail: 'Review experiment logic before wet-lab execution.' },
+      { label: 'Current scope', value: 'MVP', detail: 'No research notebook or video tools yet.' },
+    ],
+  },
+  institute: {
+    title: 'Institute Dashboard',
+    subtitle: 'Institution-level foundation for future program management.',
+    icon: Landmark,
+    cards: [
+      { label: 'Role access', value: 'Institute', detail: 'Built for future institutional oversight.' },
+      { label: 'Planned tools', value: 'Programs', detail: 'No classroom or attendance modules in this first build.' },
+      { label: 'Readiness', value: 'Pre-lab', detail: 'Use BioLabX to prepare learners before practical sessions.' },
+    ],
+  },
+  admin: {
+    title: 'Admin Dashboard',
+    subtitle: 'Platform administration foundation.',
+    icon: ShieldIcon,
+    cards: [
+      { label: 'Role access', value: 'Admin', detail: 'Reserved for future platform management.' },
+      { label: 'Users', value: 'Profiles', detail: 'Profiles are stored in Supabase for real user roles.' },
+      { label: 'Current scope', value: 'Access', detail: 'Only role routing and dashboard foundations are enabled now.' },
+    ],
+  },
+};
 
 const experiments = [
   {
@@ -239,6 +305,10 @@ function GaugeIcon(props) {
   return <Timer {...props} />;
 }
 
+function ShieldIcon(props) {
+  return <LockKeyhole {...props} />;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -250,12 +320,15 @@ function App() {
 function AppShell() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [redirectAfterAuth, setRedirectAfterAuth] = useState(routePaths.student);
   const location = useLocation();
   const navigate = useNavigate();
   const activePage = getRouteIdFromPath(location.pathname);
-  const ActiveIcon = pages.find((page) => page.id === activePage)?.icon ?? Home;
+  const ActiveIcon = pages.find((page) => page.id === activePage)?.icon
+    ?? roleDashboardConfig[activePage]?.icon
+    ?? Home;
 
   const pageTitle = useMemo(
     () => routeLabels[activePage] ?? 'Home',
@@ -271,17 +344,43 @@ function AppShell() {
 
     let isMounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
+    const loadProfile = async (currentUser) => {
+      if (!currentUser) {
+        if (isMounted) {
+          setProfile(null);
+        }
+        return null;
+      }
+
+      const fallbackProfile = buildProfileFromUser(currentUser);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, institution, department')
+        .eq('id', currentUser.id)
+        .single();
+
+      const nextProfile = error ? fallbackProfile : { ...fallbackProfile, ...data };
+
+      if (isMounted) {
+        setProfile(nextProfile);
+      }
+
+      return nextProfile;
+    };
+
+    supabase.auth.getSession().then(async ({ data }) => {
       if (isMounted) {
         setSession(data.session);
+        await loadProfile(data.session?.user);
         setAuthLoading(false);
       }
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       setSession(nextSession);
+      await loadProfile(nextSession?.user);
       setAuthLoading(false);
     });
 
@@ -294,7 +393,7 @@ function AppShell() {
   const goToPage = (pageId) => {
     const nextPath = routePaths[pageId] ?? '/';
 
-    if (protectedPages.includes(pageId) && !user) {
+    if (dashboardRoles.includes(pageId) && !user) {
       setRedirectAfterAuth(nextPath);
       navigate(routePaths.login, { state: { from: nextPath } });
       setIsMenuOpen(false);
@@ -307,12 +406,16 @@ function AppShell() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleAuthSuccess = (nextSession) => {
+  const handleAuthSuccess = (nextSession, explicitRole) => {
     if (nextSession) {
       setSession(nextSession);
     }
 
-    navigate(location.state?.from ?? redirectAfterAuth);
+    const metadataRole = nextSession?.user?.user_metadata?.role;
+    const nextRole = normalizeRole(explicitRole ?? profile?.role ?? metadataRole);
+    const targetPath = location.state?.from ?? getDashboardPathForRole(nextRole) ?? redirectAfterAuth;
+
+    navigate(targetPath);
     setIsMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -323,6 +426,7 @@ function AppShell() {
     }
 
     setSession(null);
+    setProfile(null);
     navigate(routePaths.home);
     setIsMenuOpen(false);
   };
@@ -333,6 +437,7 @@ function AppShell() {
         activePage={activePage}
         isMenuOpen={isMenuOpen}
         user={user}
+        profile={profile}
         onSignOut={handleSignOut}
         onMenuToggle={() => setIsMenuOpen((open) => !open)}
         onNavigate={goToPage}
@@ -366,29 +471,56 @@ function AppShell() {
           <Route path="/experiments" element={<ExperimentsPage />} />
           <Route path="/gel-electrophoresis" element={<GelSimulator />} />
           <Route
-            path="/student-dashboard"
+            path="/student"
             element={
-              <ProtectedRoute isLoading={authLoading} user={user}>
-                <StudentDashboard />
+              <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="student">
+                <RoleDashboard role="student" profile={profile} />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/teacher-dashboard"
+            path="/teacher"
             element={
-              <ProtectedRoute isLoading={authLoading} user={user}>
-                <TeacherDashboard />
+              <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="teacher">
+                <RoleDashboard role="teacher" profile={profile} />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/inventory"
+            path="/lab-assistant"
             element={
-              <ProtectedRoute isLoading={authLoading} user={user}>
-                <InventoryPage />
+              <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="lab_assistant">
+                <RoleDashboard role="lab_assistant" profile={profile} />
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/phd"
+            element={
+              <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="phd">
+                <RoleDashboard role="phd" profile={profile} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/institute"
+            element={
+              <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="institute">
+                <RoleDashboard role="institute" profile={profile} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="admin">
+                <RoleDashboard role="admin" profile={profile} />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/student-dashboard" element={<Navigate to="/student" replace />} />
+          <Route path="/teacher-dashboard" element={<Navigate to="/teacher" replace />} />
+          <Route path="/inventory" element={<Navigate to="/lab-assistant" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -401,7 +533,29 @@ function getRouteIdFromPath(pathname) {
   return route?.[0] ?? 'home';
 }
 
-function Navbar({ activePage, isMenuOpen, user, onSignOut, onMenuToggle, onNavigate }) {
+function getDashboardPathForRole(role) {
+  const normalizedRole = normalizeRole(role);
+  return routePaths[normalizedRole] ?? routePaths.student;
+}
+
+function normalizeRole(role) {
+  return roleOptions.includes(role) ? role : 'student';
+}
+
+function buildProfileFromUser(user) {
+  return {
+    id: user.id,
+    full_name: user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'BioLabX User',
+    role: normalizeRole(user.user_metadata?.role),
+    institution: user.user_metadata?.institution ?? '',
+    department: user.user_metadata?.department ?? '',
+  };
+}
+
+function Navbar({ activePage, isMenuOpen, user, profile, onSignOut, onMenuToggle, onNavigate }) {
+  const dashboardRole = normalizeRole(profile?.role ?? user?.user_metadata?.role);
+  const dashboardLabel = roleDashboardConfig[dashboardRole]?.title ?? 'My Dashboard';
+
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
@@ -435,6 +589,18 @@ function Navbar({ activePage, isMenuOpen, user, onSignOut, onMenuToggle, onNavig
               {page.label}
             </button>
           ))}
+          {user && (
+            <button
+              onClick={() => onNavigate(dashboardRole)}
+              className={`rounded-md px-3 py-2 text-sm font-semibold transition ${
+                activePage === dashboardRole
+                  ? 'bg-lab-50 text-lab-700'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-ink'
+              }`}
+            >
+              My Dashboard
+            </button>
+          )}
         </div>
 
         <div className="hidden items-center gap-2 lg:flex">
@@ -541,13 +707,26 @@ function Navbar({ activePage, isMenuOpen, user, onSignOut, onMenuToggle, onNavig
               );
             })}
             {user ? (
-              <button
-                onClick={onSignOut}
-                className="flex items-center gap-3 rounded-md px-3 py-3 text-left text-sm font-semibold text-slate-600 hover:bg-slate-100"
-              >
-                <LogOut size={18} />
-                Sign out
-              </button>
+              <>
+                <button
+                  onClick={() => onNavigate(dashboardRole)}
+                  className={`flex items-center gap-3 rounded-md px-3 py-3 text-left text-sm font-semibold ${
+                    activePage === dashboardRole
+                      ? 'bg-lab-50 text-lab-700'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <GraduationCap size={18} />
+                  {dashboardLabel}
+                </button>
+                <button
+                  onClick={onSignOut}
+                  className="flex items-center gap-3 rounded-md px-3 py-3 text-left text-sm font-semibold text-slate-600 hover:bg-slate-100"
+                >
+                  <LogOut size={18} />
+                  Sign out
+                </button>
+              </>
             ) : (
               <>
                 <button
@@ -581,8 +760,9 @@ function Navbar({ activePage, isMenuOpen, user, onSignOut, onMenuToggle, onNavig
   );
 }
 
-function ProtectedRoute({ isLoading, user, children }) {
+function ProtectedRoute({ isLoading, user, profile, allowedRole, children }) {
   const location = useLocation();
+  const userRole = normalizeRole(profile?.role ?? user?.user_metadata?.role);
 
   if (isLoading) {
     return (
@@ -596,6 +776,10 @@ function ProtectedRoute({ isLoading, user, children }) {
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  }
+
+  if (allowedRole && userRole !== allowedRole) {
+    return <Navigate to={getDashboardPathForRole(userRole)} replace />;
   }
 
   return children;
@@ -630,8 +814,14 @@ function LoginPage({ onNavigate, onAuthSuccess }) {
       return;
     }
 
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.session.user.id)
+      .single();
+
     setStatus({ type: 'success', text: 'Login successful. Redirecting...' });
-    onAuthSuccess(data.session);
+    onAuthSuccess(data.session, profileData?.role);
   };
 
   return (
@@ -730,7 +920,7 @@ function SignupPage({ onNavigate, onAuthSuccess }) {
 
     if (data.session) {
       setStatus({ type: 'success', text: 'Account created. Redirecting...' });
-      onAuthSuccess(data.session);
+      onAuthSuccess(data.session, role);
       return;
     }
 
@@ -954,7 +1144,7 @@ function AuthLinkRow({ primaryText, primaryAction, onPrimary, secondaryAction, o
 }
 
 function formatRole(role) {
-  return role
+  return normalizeRole(role)
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
@@ -1199,6 +1389,64 @@ function BenefitCard({ group }) {
         ))}
       </ul>
     </article>
+  );
+}
+
+function RoleDashboard({ role, profile }) {
+  const config = roleDashboardConfig[role] ?? roleDashboardConfig.student;
+  const Icon = config.icon;
+
+  return (
+    <PageShell>
+      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-lab-50 text-lab-700">
+              <Icon size={24} />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-lab-700">
+                Role-based access
+              </p>
+              <h2 className="mt-2 text-2xl font-bold text-ink">{config.title}</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{config.subtitle}</p>
+            </div>
+          </div>
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+            <p className="font-bold text-ink">{profile?.full_name ?? 'BioLabX User'}</p>
+            <p className="mt-1 font-semibold text-slate-500">{formatRole(profile?.role ?? role)}</p>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        {config.cards.map((card) => (
+          <article key={card.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-sm font-bold text-slate-500">{card.label}</p>
+            <p className="mt-3 text-2xl font-bold text-ink">{card.value}</p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">{card.detail}</p>
+          </article>
+        ))}
+      </div>
+
+      <Panel title="Profile Data" subtitle="Live role data loaded from Supabase profiles when configured.">
+        <div className="grid gap-3 text-sm md:grid-cols-2">
+          <ProfileFact label="Full name" value={profile?.full_name ?? 'Not set'} />
+          <ProfileFact label="Role" value={formatRole(profile?.role ?? role)} />
+          <ProfileFact label="Institution" value={profile?.institution || 'Not set'} />
+          <ProfileFact label="Department" value={profile?.department || 'Not set'} />
+        </div>
+      </Panel>
+    </PageShell>
+  );
+}
+
+function ProfileFact({ label, value }) {
+  return (
+    <div className="rounded-md bg-slate-50 p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-2 font-semibold text-ink">{value}</p>
+    </div>
   );
 }
 
