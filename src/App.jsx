@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
+import {
   Activity,
   AlertTriangle,
   BarChart3,
@@ -37,15 +45,27 @@ import {
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient';
 
 const pages = [
-  { id: 'home', label: 'Home', icon: Home },
-  { id: 'student', label: 'Student Dashboard', icon: GraduationCap },
-  { id: 'experiments', label: 'Experiments', icon: FlaskConical },
-  { id: 'gel', label: 'Gel Simulator', icon: Activity },
-  { id: 'teacher', label: 'Teacher Dashboard', icon: ClipboardList },
-  { id: 'inventory', label: 'Inventory', icon: Boxes },
+  { id: 'home', label: 'Home', icon: Home, path: '/' },
+  { id: 'student', label: 'Student Dashboard', icon: GraduationCap, path: '/student-dashboard' },
+  { id: 'experiments', label: 'Experiments', icon: FlaskConical, path: '/experiments' },
+  { id: 'gel', label: 'Gel Simulator', icon: Activity, path: '/gel-electrophoresis' },
+  { id: 'teacher', label: 'Teacher Dashboard', icon: ClipboardList, path: '/teacher-dashboard' },
+  { id: 'inventory', label: 'Inventory', icon: Boxes, path: '/inventory' },
 ];
 
 const protectedPages = ['student', 'teacher', 'inventory'];
+
+const routePaths = {
+  home: '/',
+  student: '/student-dashboard',
+  experiments: '/experiments',
+  gel: '/gel-electrophoresis',
+  teacher: '/teacher-dashboard',
+  inventory: '/inventory',
+  login: '/login',
+  signup: '/signup',
+  forgot: '/forgot-password',
+};
 
 const routeLabels = {
   home: 'Home',
@@ -55,7 +75,7 @@ const routeLabels = {
   teacher: 'Teacher Dashboard',
   inventory: 'Inventory',
   login: 'Login',
-  signup: 'Signup',
+  signup: 'Sign Up',
   forgot: 'Forgot Password',
 };
 
@@ -220,11 +240,21 @@ function GaugeIcon(props) {
 }
 
 function App() {
-  const [activePage, setActivePage] = useState('home');
+  return (
+    <BrowserRouter>
+      <AppShell />
+    </BrowserRouter>
+  );
+}
+
+function AppShell() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [redirectAfterAuth, setRedirectAfterAuth] = useState('student');
+  const [redirectAfterAuth, setRedirectAfterAuth] = useState(routePaths.student);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activePage = getRouteIdFromPath(location.pathname);
   const ActiveIcon = pages.find((page) => page.id === activePage)?.icon ?? Home;
 
   const pageTitle = useMemo(
@@ -262,15 +292,17 @@ function App() {
   }, []);
 
   const goToPage = (pageId) => {
+    const nextPath = routePaths[pageId] ?? '/';
+
     if (protectedPages.includes(pageId) && !user) {
-      setRedirectAfterAuth(pageId);
-      setActivePage('login');
+      setRedirectAfterAuth(nextPath);
+      navigate(routePaths.login, { state: { from: nextPath } });
       setIsMenuOpen(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    setActivePage(pageId);
+    navigate(nextPath);
     setIsMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -280,7 +312,7 @@ function App() {
       setSession(nextSession);
     }
 
-    setActivePage(redirectAfterAuth);
+    navigate(location.state?.from ?? redirectAfterAuth);
     setIsMenuOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -291,7 +323,7 @@ function App() {
     }
 
     setSession(null);
-    setActivePage('home');
+    navigate(routePaths.home);
     setIsMenuOpen(false);
   };
 
@@ -320,34 +352,53 @@ function App() {
           </div>
         )}
 
-        {activePage === 'home' && <HomePage onNavigate={goToPage} />}
-        {activePage === 'login' && (
-          <LoginPage onNavigate={goToPage} onAuthSuccess={handleAuthSuccess} />
-        )}
-        {activePage === 'signup' && (
-          <SignupPage onNavigate={goToPage} onAuthSuccess={handleAuthSuccess} />
-        )}
-        {activePage === 'forgot' && <ForgotPasswordPage onNavigate={goToPage} />}
-        {activePage === 'student' && (
-          <ProtectedRoute isLoading={authLoading} user={user} onNavigate={goToPage}>
-            <StudentDashboard />
-          </ProtectedRoute>
-        )}
-        {activePage === 'experiments' && <ExperimentsPage />}
-        {activePage === 'gel' && <GelSimulator />}
-        {activePage === 'teacher' && (
-          <ProtectedRoute isLoading={authLoading} user={user} onNavigate={goToPage}>
-            <TeacherDashboard />
-          </ProtectedRoute>
-        )}
-        {activePage === 'inventory' && (
-          <ProtectedRoute isLoading={authLoading} user={user} onNavigate={goToPage}>
-            <InventoryPage />
-          </ProtectedRoute>
-        )}
+        <Routes>
+          <Route path="/" element={<HomePage onNavigate={goToPage} />} />
+          <Route
+            path="/login"
+            element={<LoginPage onNavigate={goToPage} onAuthSuccess={handleAuthSuccess} />}
+          />
+          <Route
+            path="/signup"
+            element={<SignupPage onNavigate={goToPage} onAuthSuccess={handleAuthSuccess} />}
+          />
+          <Route path="/forgot-password" element={<ForgotPasswordPage onNavigate={goToPage} />} />
+          <Route path="/experiments" element={<ExperimentsPage />} />
+          <Route path="/gel-electrophoresis" element={<GelSimulator />} />
+          <Route
+            path="/student-dashboard"
+            element={
+              <ProtectedRoute isLoading={authLoading} user={user}>
+                <StudentDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher-dashboard"
+            element={
+              <ProtectedRoute isLoading={authLoading} user={user}>
+                <TeacherDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/inventory"
+            element={
+              <ProtectedRoute isLoading={authLoading} user={user}>
+                <InventoryPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
     </div>
   );
+}
+
+function getRouteIdFromPath(pathname) {
+  const route = Object.entries(routePaths).find(([, path]) => path === pathname);
+  return route?.[0] ?? 'home';
 }
 
 function Navbar({ activePage, isMenuOpen, user, onSignOut, onMenuToggle, onNavigate }) {
@@ -394,17 +445,30 @@ function Navbar({ activePage, isMenuOpen, user, onSignOut, onMenuToggle, onNavig
               Sign out
             </button>
           ) : (
-            <button
-              onClick={() => onNavigate('login')}
-              className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-bold transition ${
-                activePage === 'login'
-                  ? 'bg-lab-50 text-lab-700'
-                  : 'bg-ink text-white hover:bg-slate-700'
-              }`}
-            >
-              <LockKeyhole size={17} />
-              Login
-            </button>
+            <>
+              <button
+                onClick={() => onNavigate('login')}
+                className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-bold transition ${
+                  activePage === 'login'
+                    ? 'border-lab-100 bg-lab-50 text-lab-700'
+                    : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                <LockKeyhole size={17} />
+                Login
+              </button>
+              <button
+                onClick={() => onNavigate('signup')}
+                className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-bold transition ${
+                  activePage === 'signup'
+                    ? 'bg-lab-50 text-lab-700'
+                    : 'bg-ink text-white hover:bg-slate-700'
+                }`}
+              >
+                <UserPlus size={17} />
+                Sign Up
+              </button>
+            </>
           )}
         </div>
 
@@ -446,15 +510,30 @@ function Navbar({ activePage, isMenuOpen, user, onSignOut, onMenuToggle, onNavig
                 Sign out
               </button>
             ) : (
-              <button
-                onClick={() => onNavigate('login')}
-                className={`flex items-center gap-3 rounded-md px-3 py-3 text-left text-sm font-semibold ${
-                  activePage === 'login' ? 'bg-lab-50 text-lab-700' : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <LockKeyhole size={18} />
-                Login
-              </button>
+              <>
+                <button
+                  onClick={() => onNavigate('login')}
+                  className={`flex items-center gap-3 rounded-md px-3 py-3 text-left text-sm font-semibold ${
+                    activePage === 'login'
+                      ? 'bg-lab-50 text-lab-700'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <LockKeyhole size={18} />
+                  Login
+                </button>
+                <button
+                  onClick={() => onNavigate('signup')}
+                  className={`flex items-center gap-3 rounded-md px-3 py-3 text-left text-sm font-semibold ${
+                    activePage === 'signup'
+                      ? 'bg-lab-50 text-lab-700'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <UserPlus size={18} />
+                  Sign Up
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -463,12 +542,8 @@ function Navbar({ activePage, isMenuOpen, user, onSignOut, onMenuToggle, onNavig
   );
 }
 
-function ProtectedRoute({ isLoading, user, onNavigate, children }) {
-  useEffect(() => {
-    if (!isLoading && !user) {
-      onNavigate('login');
-    }
-  }, [isLoading, onNavigate, user]);
+function ProtectedRoute({ isLoading, user, children }) {
+  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -481,15 +556,7 @@ function ProtectedRoute({ isLoading, user, onNavigate, children }) {
   }
 
   if (!user) {
-    return (
-      <PageShell>
-        <Panel title="Login required" subtitle="Redirecting to the login page.">
-          <p className="text-sm font-medium text-slate-600">
-            Student Dashboard, Teacher Dashboard, and Inventory require an authenticated account.
-          </p>
-        </Panel>
-      </PageShell>
-    );
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
   return children;
@@ -563,8 +630,8 @@ function LoginPage({ onNavigate, onAuthSuccess }) {
         </button>
       </form>
       <AuthLinkRow
-        primaryText="Need an account?"
-        primaryAction="Create one"
+        primaryText="Don't have an account?"
+        primaryAction="Sign up"
         onPrimary={() => onNavigate('signup')}
         secondaryAction="Forgot password?"
         onSecondary={() => onNavigate('forgot')}
