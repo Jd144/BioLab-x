@@ -10,6 +10,18 @@ create table public.profiles (
   role public.user_role not null default 'student',
   institution text,
   department text,
+  course text,
+  batch_year text,
+  entry_number text,
+  roll_number text,
+  lab_name text,
+  teacher_name text,
+  instructor_name text,
+  supervisor_name text,
+  pi_name text,
+  attendance_status text,
+  class_name text,
+  batch_name text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -77,12 +89,32 @@ create table public.equipment_maintenance (
   updated_at timestamptz not null default now()
 );
 
+create table public.certificate_records (
+  id uuid primary key default gen_random_uuid(),
+  certificate_id text not null unique,
+  student_id uuid not null references public.profiles(id) on delete cascade,
+  experiment_slug text not null,
+  experiment_name text not null,
+  experiment_category text,
+  score numeric(5,2) not null check (score >= 0),
+  total_marks numeric(5,2) not null check (total_marks > 0),
+  percentage numeric(5,2) not null check (percentage between 0 and 100),
+  student_snapshot jsonb not null default '{}'::jsonb,
+  class_snapshot jsonb not null default '{}'::jsonb,
+  teacher_snapshot jsonb not null default '{}'::jsonb,
+  lab_snapshot jsonb not null default '{}'::jsonb,
+  institute_snapshot jsonb not null default '{}'::jsonb,
+  completed_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
 alter table public.profiles enable row level security;
 alter table public.experiments enable row level security;
 alter table public.student_progress enable row level security;
 alter table public.quiz_results enable row level security;
 alter table public.inventory_items enable row level security;
 alter table public.equipment_maintenance enable row level security;
+alter table public.certificate_records enable row level security;
 
 create policy "Profiles are readable by authenticated users"
   on public.profiles for select
@@ -162,3 +194,13 @@ create policy "Maintenance is readable by authenticated users"
   on public.equipment_maintenance for select
   to authenticated
   using (true);
+
+create policy "Students can read their own certificates"
+  on public.certificate_records for select
+  to authenticated
+  using (auth.uid() = student_id);
+
+create policy "Students can insert their own certificates"
+  on public.certificate_records for insert
+  to authenticated
+  with check (auth.uid() = student_id);

@@ -22,7 +22,9 @@ import {
   ChevronRight,
   ClipboardList,
   Dna,
+  Download,
   Eye,
+  FileCheck2,
   FlaskConical,
   GraduationCap,
   Handshake,
@@ -35,6 +37,8 @@ import {
   Menu,
   Microscope,
   PlayCircle,
+  Printer,
+  QrCode,
   Search,
   Sparkles,
   Timer,
@@ -56,6 +60,7 @@ const dashboardRoles = ['student', 'teacher', 'lab_assistant', 'phd', 'institute
 const routePaths = {
   home: '/',
   student: '/student',
+  studentCertificates: '/student/certificates',
   experiments: '/experiments',
   teacher: '/teacher',
   lab_assistant: '/lab-assistant',
@@ -70,6 +75,7 @@ const routePaths = {
 const routeLabels = {
   home: 'Home',
   student: 'Student Dashboard',
+  studentCertificates: 'Certificate History',
   experiments: 'Experiments',
   teacher: 'Teacher Dashboard',
   lab_assistant: 'Lab Assistant Dashboard',
@@ -307,6 +313,7 @@ function AppShell() {
   const activePage = getRouteIdFromPath(location.pathname);
   const ActiveIcon = pages.find((page) => page.id === activePage)?.icon
     ?? roleDashboardConfig[activePage]?.icon
+    ?? (activePage === 'studentCertificates' ? FileCheck2 : null)
     ?? Home;
 
   const pageTitle = useMemo(
@@ -334,7 +341,7 @@ function AppShell() {
       const fallbackProfile = buildProfileFromUser(currentUser);
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, role, institution, department')
+        .select('id, full_name, role, institution, department, course, batch_year, entry_number, roll_number, lab_name, teacher_name, instructor_name, supervisor_name, pi_name, attendance_status, class_name, batch_name')
         .eq('id', currentUser.id)
         .single();
 
@@ -462,6 +469,14 @@ function AppShell() {
             }
           />
           <Route
+            path="/student/certificates"
+            element={
+              <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="student">
+                <StudentCertificatesPage user={user} profile={profile} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/teacher"
             element={
               <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="teacher">
@@ -512,6 +527,10 @@ function AppShell() {
 }
 
 function getRouteIdFromPath(pathname) {
+  if (pathname === '/student/certificates') {
+    return 'studentCertificates';
+  }
+
   if (pathname.startsWith('/experiments/')) {
     return 'experiments';
   }
@@ -530,12 +549,26 @@ function normalizeRole(role) {
 }
 
 function buildProfileFromUser(user) {
+  const metadata = user.user_metadata ?? {};
+
   return {
     id: user.id,
-    full_name: user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'BioLabX User',
-    role: normalizeRole(user.user_metadata?.role),
-    institution: user.user_metadata?.institution ?? '',
-    department: user.user_metadata?.department ?? '',
+    full_name: metadata.full_name ?? user.email?.split('@')[0] ?? 'BioLabX User',
+    role: normalizeRole(metadata.role),
+    institution: metadata.institution ?? '',
+    department: metadata.department ?? '',
+    course: metadata.course ?? '',
+    batch_year: metadata.batch_year ?? '',
+    entry_number: metadata.entry_number ?? '',
+    roll_number: metadata.roll_number ?? '',
+    lab_name: metadata.lab_name ?? '',
+    teacher_name: metadata.teacher_name ?? '',
+    instructor_name: metadata.instructor_name ?? '',
+    supervisor_name: metadata.supervisor_name ?? '',
+    pi_name: metadata.pi_name ?? '',
+    attendance_status: metadata.attendance_status ?? '',
+    class_name: metadata.class_name ?? '',
+    batch_name: metadata.batch_name ?? '',
   };
 }
 
@@ -1382,6 +1415,7 @@ function BenefitCard({ group }) {
 function RoleDashboard({ role, profile }) {
   const config = roleDashboardConfig[role] ?? roleDashboardConfig.student;
   const Icon = config.icon;
+  const navigate = useNavigate();
 
   return (
     <PageShell>
@@ -1405,6 +1439,29 @@ function RoleDashboard({ role, profile }) {
           </div>
         </div>
       </section>
+
+      {role === 'student' && (
+        <section className="rounded-lg border border-lab-100 bg-lab-50 p-5 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-lab-700">
+                Academic records
+              </p>
+              <h3 className="mt-2 text-xl font-bold text-ink">Certificate History</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                View earned BioLabX virtual laboratory completion certificates.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate('/student/certificates')}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-ink px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-700"
+            >
+              <FileCheck2 size={18} />
+              View Certificates
+            </button>
+          </div>
+        </section>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3">
         {config.cards.map((card) => (
@@ -1434,6 +1491,102 @@ function ProfileFact({ label, value }) {
       <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
       <p className="mt-2 font-semibold text-ink">{value}</p>
     </div>
+  );
+}
+
+function StudentCertificatesPage({ user, profile }) {
+  const [certificates, setCertificates] = useState([]);
+  const [selectedCertificate, setSelectedCertificate] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const records = loadCertificateRecords(user);
+    setCertificates(records);
+    setSelectedCertificate(records[0] ?? null);
+  }, [user]);
+
+  return (
+    <PageShell>
+      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-lab-700">
+              Student records
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-ink">Certificate History</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+              Earned certificates appear after completing a simulation, submitting the quiz, and scoring 70% or above.
+            </p>
+          </div>
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+            <p className="font-bold text-ink">{profile?.full_name ?? user?.email ?? 'BioLabX Student'}</p>
+            <p className="mt-1 font-semibold text-slate-500">Student certificate archive</p>
+          </div>
+        </div>
+      </section>
+
+      {certificates.length === 0 ? (
+        <Panel title="No certificates yet" subtitle="Complete an eligible experiment to unlock your first certificate.">
+          <button
+            onClick={() => navigate('/experiments')}
+            className="inline-flex items-center justify-center gap-2 rounded-md bg-ink px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-700"
+          >
+            <FlaskConical size={18} />
+            Explore Experiments
+          </button>
+        </Panel>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
+          <Panel title="Earned Certificates" subtitle="Student certificate cards">
+            <div className="grid gap-4">
+              {certificates.map((certificate) => (
+                <article
+                  key={certificate.certificateId}
+                  className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h3 className="font-bold text-ink">{certificate.experimentName}</h3>
+                      <p className="mt-1 text-sm font-semibold text-lab-700">{certificate.scoreText}</p>
+                    </div>
+                    <Tag>{certificate.completionDate}</Tag>
+                  </div>
+                  <div className="mt-4 grid gap-2 text-sm text-slate-600">
+                    <p><strong className="text-ink">Teacher:</strong> {certificate.teacherName}</p>
+                    <p><strong className="text-ink">Lab:</strong> {certificate.labName}</p>
+                    <p><strong className="text-ink">Institute:</strong> {certificate.institute}</p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedCertificate(certificate)}
+                    className="mt-4 inline-flex items-center gap-2 rounded-md bg-lab-700 px-4 py-2 text-sm font-bold text-white"
+                  >
+                    <FileCheck2 size={17} />
+                    View certificate
+                  </button>
+                </article>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Certificate Preview" subtitle="Official BioLabX completion record">
+            {selectedCertificate ? (
+              <>
+                <OfficialCertificate record={selectedCertificate} />
+                <button
+                  onClick={() => window.print()}
+                  className="mt-5 inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700"
+                >
+                  <Printer size={18} />
+                  Print Certificate
+                </button>
+              </>
+            ) : (
+              <p className="text-sm font-semibold text-slate-600">Select a certificate to preview.</p>
+            )}
+          </Panel>
+        </div>
+      )}
+    </PageShell>
   );
 }
 
@@ -1803,6 +1956,7 @@ function McqQuiz({ experiment, user, onSubmitScore }) {
       score,
       total: experiment.quizQuestions.length,
       percentage,
+      submittedAt: new Date().toISOString(),
     };
     onSubmitScore(result);
 
@@ -1871,16 +2025,34 @@ function McqQuiz({ experiment, user, onSubmitScore }) {
 }
 
 function CertificateSection({ experiment, user, profile, quizResult, simulationComplete, onNavigate }) {
-  const completed = Boolean(simulationComplete && quizResult);
-  const certificateId = `BLX-${experiment.slug.toUpperCase().slice(0, 8)}-${new Date().getFullYear()}`;
-  const studentName = profile?.full_name ?? user?.email ?? 'Guest Learner';
-  const completionDate = new Date().toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
+  const hasSubmittedQuiz = Boolean(quizResult);
+  const passedQuiz = Boolean(quizResult && quizResult.percentage >= 70);
+  const unlocked = Boolean(simulationComplete && hasSubmittedQuiz && passedQuiz);
+  const certificateRecord = useMemo(
+    () => buildCertificateRecord({ experiment, user, profile, quizResult }),
+    [experiment, user, profile, quizResult],
+  );
+
+  useEffect(() => {
+    if (unlocked && user) {
+      saveCertificateRecord(user, certificateRecord);
+      persistCertificateRecord(user, certificateRecord);
+    }
+  }, [certificateRecord, unlocked, user]);
+
+  const printCertificate = () => {
+    if (!unlocked) {
+      return;
+    }
+
+    window.print();
+  };
 
   const downloadCertificate = () => {
+    if (!unlocked) {
+      return;
+    }
+
     if (!user) {
       onNavigate('login');
       return;
@@ -1890,35 +2062,261 @@ function CertificateSection({ experiment, user, profile, quizResult, simulationC
   };
 
   return (
-    <Panel title="Completion Certificate" subtitle="Printable certificate after simulation and quiz completion">
-      <div className="rounded-lg border-2 border-lab-200 bg-white p-6 text-center">
-        <AwardIcon />
-        <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-lab-700">BioLabX</p>
-        <h3 className="mt-2 text-2xl font-bold text-ink">Completion Certificate</h3>
-        <p className="mt-4 text-sm text-slate-500">This certifies that</p>
-        <p className="mt-2 text-3xl font-bold text-ink">{studentName}</p>
-        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-          has completed the BioLabX learning module for <strong>{experiment.title}</strong>.
-        </p>
-        <div className="mt-5 grid gap-3 text-sm md:grid-cols-3">
-          <ProfileFact label="Score" value={quizResult ? `${quizResult.score}/${quizResult.total} (${quizResult.percentage}%)` : 'Quiz pending'} />
-          <ProfileFact label="Completion date" value={completed ? completionDate : 'Pending'} />
-          <ProfileFact label="Certificate ID" value={certificateId} />
-        </div>
-        {!user && (
-          <p className="mt-4 rounded-md bg-amber-50 p-3 text-sm font-semibold text-amber-800">
-            Login is required to download the certificate. Preview remains available.
-          </p>
-        )}
+    <Panel title="Completion Certificate" subtitle="Official certificate unlocks after simulation and 70% quiz score">
+      {!simulationComplete && (
+        <StatusNotice type="pending" text="Complete the interactive simulation to enable certificate eligibility." />
+      )}
+      {simulationComplete && !hasSubmittedQuiz && (
+        <StatusNotice type="pending" text="Submit the quiz to calculate your certificate eligibility." />
+      )}
+      {hasSubmittedQuiz && !passedQuiz && (
+        <StatusNotice type="locked" text="Certificate locked. Score at least 70% to unlock." />
+      )}
+      {unlocked && !user && (
+        <StatusNotice
+          type="warning"
+          text="Certificate preview is available. Login is required to download and store it in your certificate history."
+        />
+      )}
+
+      <OfficialCertificate record={certificateRecord} locked={!unlocked} />
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
         <button
           onClick={downloadCertificate}
-          disabled={!completed}
-          className="mt-5 rounded-md bg-lab-700 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          disabled={!unlocked}
+          className="inline-flex items-center justify-center gap-2 rounded-md bg-lab-700 px-4 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
         >
+          <Download size={18} />
           Download Certificate
+        </button>
+        <button
+          onClick={printCertificate}
+          disabled={!unlocked}
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+        >
+          <Printer size={18} />
+          Print Certificate
         </button>
       </div>
     </Panel>
+  );
+}
+
+function StatusNotice({ type, text }) {
+  const styles = {
+    locked: 'border-rose-200 bg-rose-50 text-rose-800',
+    pending: 'border-amber-200 bg-amber-50 text-amber-800',
+    warning: 'border-lab-100 bg-lab-50 text-lab-800',
+  };
+
+  return (
+    <div className={`mb-4 rounded-md border p-3 text-sm font-semibold ${styles[type] ?? styles.pending}`}>
+      {text}
+    </div>
+  );
+}
+
+function OfficialCertificate({ record, locked = false }) {
+  return (
+    <div className="certificate-print rounded-lg border-2 border-lab-200 bg-white p-5 shadow-sm md:p-8">
+      <div className="rounded-md border border-slate-200 p-5 md:p-8">
+        <div className="flex flex-col gap-5 border-b border-slate-200 pb-5 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-center gap-4">
+            <AwardIcon />
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-lab-700">BioLabX</p>
+              <h3 className="mt-1 text-2xl font-bold text-ink md:text-3xl">
+                Certificate of Virtual Laboratory Completion
+              </h3>
+            </div>
+          </div>
+          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-left">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Certificate ID</p>
+            <p className="mt-1 font-mono text-sm font-bold text-ink">{record.certificateId}</p>
+          </div>
+        </div>
+
+        {locked && (
+          <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 p-4 text-center text-sm font-semibold text-slate-600">
+            Official certificate preview remains locked until all eligibility requirements are completed.
+          </div>
+        )}
+
+        <div className={`mt-6 ${locked ? 'opacity-55' : ''}`}>
+          <p className="text-center text-sm leading-7 text-slate-600">
+            This is to certify that the above student has successfully completed the virtual laboratory training
+            module under the assigned teacher/lab through BioLabX.
+          </p>
+          <p className="mt-4 text-center text-3xl font-bold text-ink">{record.studentName}</p>
+
+          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <CertificateField label="Student course" value={record.course} />
+            <CertificateField label="Batch year" value={record.batchYear} />
+            <CertificateField label="Entry number / roll number" value={record.entryNumber} />
+            <CertificateField label="Institute / University" value={record.institute} />
+            <CertificateField label="Department" value={record.department} />
+            <CertificateField label="Lab name" value={record.labName} />
+            <CertificateField label="Teacher / instructor" value={record.teacherName} />
+            <CertificateField label="Supervisor / PI" value={record.supervisorName} />
+            <CertificateField label="Class / batch" value={record.className} />
+            <CertificateField label="Attendance status" value={record.attendanceStatus} />
+            <CertificateField label="Experiment name" value={record.experimentName} />
+            <CertificateField label="Experiment category" value={record.experimentCategory} />
+            <CertificateField label="Completion date" value={record.completionDate} />
+            <CertificateField label="Score / percentage" value={record.scoreText} />
+            <CertificateField label="Verification status" value={locked ? 'Locked' : 'Eligible'} />
+          </div>
+
+          <div className="mt-8 grid gap-4 md:grid-cols-4">
+            <CertificatePlaceholder icon={QrCode} label="Verification QR" value="QR placeholder" />
+            <CertificatePlaceholder icon={FileCheck2} label="Teacher signature" value="Signature placeholder" />
+            <CertificatePlaceholder icon={FileCheck2} label="Lab head / PI signature" value="Signature placeholder" />
+            <CertificatePlaceholder icon={Landmark} label="Institute seal" value="Seal placeholder" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CertificateField({ label, value }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function CertificatePlaceholder({ icon: Icon, label, value }) {
+  return (
+    <div className="flex min-h-32 flex-col items-center justify-center rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-center">
+      <Icon className="text-lab-700" size={26} />
+      <p className="mt-3 text-sm font-bold text-ink">{label}</p>
+      <p className="mt-1 text-xs font-semibold text-slate-500">{value}</p>
+    </div>
+  );
+}
+
+function buildCertificateRecord({ experiment, user, profile, quizResult }) {
+  const metadata = user?.user_metadata ?? {};
+  const completionDateSource = quizResult?.submittedAt ? new Date(quizResult.submittedAt) : new Date();
+  const completionDate = completionDateSource.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  const scoreText = quizResult
+    ? `${quizResult.score}/${quizResult.total} (${quizResult.percentage}%)`
+    : 'Not available';
+  const userKey = user?.id?.slice(0, 8)?.toUpperCase() ?? 'GUEST';
+  const dateKey = completionDateSource.toISOString().slice(0, 10).replaceAll('-', '');
+
+  return {
+    certificateId: `BLX-${experiment.slug.toUpperCase().replaceAll('-', '').slice(0, 10)}-${userKey}-${dateKey}`,
+    slug: experiment.slug,
+    experimentName: experiment.title,
+    experimentCategory: experiment.category ?? 'Not available',
+    studentName: profileValue(profile, metadata, ['full_name', 'name'], user?.email ?? 'Not available'),
+    course: profileValue(profile, metadata, ['course', 'program'], 'Not available'),
+    batchYear: profileValue(profile, metadata, ['batch_year', 'batchYear'], 'Not available'),
+    entryNumber: profileValue(profile, metadata, ['entry_number', 'roll_number', 'rollNumber'], 'Not available'),
+    institute: profileValue(profile, metadata, ['institution', 'institute', 'university'], 'Not available'),
+    department: profileValue(profile, metadata, ['department'], 'Not available'),
+    labName: profileValue(profile, metadata, ['lab_name', 'labName'], 'Not assigned'),
+    teacherName: profileValue(profile, metadata, ['teacher_name', 'instructor_name', 'teacherName'], 'Not assigned'),
+    supervisorName: profileValue(profile, metadata, ['supervisor_name', 'pi_name', 'supervisorName'], 'Not assigned'),
+    attendanceStatus: profileValue(profile, metadata, ['attendance_status', 'attendanceStatus'], 'Not assigned'),
+    className: profileValue(profile, metadata, ['class_name', 'batch_name', 'className'], 'Not assigned'),
+    completionDate,
+    score: quizResult?.score ?? 0,
+    total: quizResult?.total ?? 0,
+    percentage: quizResult?.percentage ?? 0,
+    scoreText,
+    createdAt: completionDateSource.toISOString(),
+  };
+}
+
+function profileValue(profile, metadata, keys, fallbackText) {
+  for (const key of keys) {
+    const value = profile?.[key] ?? metadata?.[key];
+    if (value !== undefined && value !== null && `${value}`.trim() !== '') {
+      return value;
+    }
+  }
+
+  return fallbackText;
+}
+
+function certificateStorageKey(user) {
+  return `biolabx-certificates-${user?.id ?? 'guest'}`;
+}
+
+function loadCertificateRecords(user) {
+  if (!user || typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    return JSON.parse(window.localStorage.getItem(certificateStorageKey(user)) ?? '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveCertificateRecord(user, record) {
+  if (!user || typeof window === 'undefined') {
+    return;
+  }
+
+  const existingRecords = loadCertificateRecords(user);
+  const nextRecords = [
+    record,
+    ...existingRecords.filter((item) => item.certificateId !== record.certificateId),
+  ];
+  window.localStorage.setItem(certificateStorageKey(user), JSON.stringify(nextRecords));
+}
+
+async function persistCertificateRecord(user, record) {
+  if (!user || !supabase) {
+    return;
+  }
+
+  await supabase.from('certificate_records').upsert(
+    {
+      certificate_id: record.certificateId,
+      student_id: user.id,
+      experiment_slug: record.slug,
+      experiment_name: record.experimentName,
+      experiment_category: record.experimentCategory,
+      score: record.score,
+      total_marks: record.total,
+      percentage: record.percentage,
+      student_snapshot: {
+        full_name: record.studentName,
+        course: record.course,
+        batch_year: record.batchYear,
+        entry_number: record.entryNumber,
+      },
+      class_snapshot: {
+        class_name: record.className,
+        attendance_status: record.attendanceStatus,
+      },
+      teacher_snapshot: {
+        teacher_name: record.teacherName,
+        supervisor_name: record.supervisorName,
+      },
+      lab_snapshot: {
+        lab_name: record.labName,
+      },
+      institute_snapshot: {
+        institute: record.institute,
+        department: record.department,
+      },
+      completed_at: record.createdAt,
+    },
+    { onConflict: 'certificate_id' },
   );
 }
 
