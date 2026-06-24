@@ -43,6 +43,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import { experiments } from './data/experiments';
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient';
 
 const pages = [
@@ -81,6 +82,17 @@ const routeLabels = {
 };
 
 const roleOptions = ['student', 'teacher', 'lab_assistant', 'phd', 'institute', 'admin'];
+
+const experimentIconMap = {
+  activity: Activity,
+  beaker: Beaker,
+  brain: BrainCircuit,
+  chart: BarChart3,
+  dna: Dna,
+  eye: Eye,
+  flask: FlaskConical,
+  testTube: TestTube2,
+};
 
 const roleDashboardConfig = {
   student: {
@@ -144,129 +156,6 @@ const roleDashboardConfig = {
     ],
   },
 };
-
-const experiments = [
-  createExperiment({
-    slug: 'pcr-amplification',
-    title: 'PCR Amplification',
-    category: 'Molecular Biology',
-    duration: '45 min',
-    difficulty: 'Intermediate',
-    icon: Dna,
-    objective: 'Amplify a target DNA segment and interpret amplification quality using primer and cycle logic.',
-    principle: 'Polymerase chain reaction uses repeated denaturation, annealing, and extension cycles to exponentially amplify DNA.',
-    applications: ['Disease diagnostics', 'Forensic DNA analysis', 'Gene cloning preparation'],
-    materials: ['Template DNA', 'PCR tubes', 'Pipette tips', 'Ice box'],
-    reagents: ['Template DNA: 2 uL', 'Forward primer: 1 uL', 'Reverse primer: 1 uL', 'Master mix: 12.5 uL', 'Nuclease-free water: 8.5 uL'],
-    equipment: ['Thermocycler', 'Micropipettes', 'Mini centrifuge'],
-    procedure: ['Label PCR tubes clearly.', 'Prepare master mix on ice.', 'Add DNA template and primers.', 'Place tubes in thermocycler.', 'Run denaturation, annealing, and extension cycles.', 'Review amplification output.'],
-  }),
-  createExperiment({
-    slug: 'gel-electrophoresis',
-    title: 'Gel Electrophoresis',
-    category: 'Molecular Biology',
-    duration: '35 min',
-    difficulty: 'Beginner',
-    icon: Activity,
-    objective: 'Separate DNA fragments by size and estimate band positions using a DNA ladder.',
-    principle: 'DNA migrates through agarose gel toward the positive electrode; smaller fragments move faster than larger fragments.',
-    applications: ['PCR result validation', 'DNA fragment sizing', 'Restriction digest analysis'],
-    materials: ['Agarose gel tray', 'Comb', 'DNA samples', 'Loading dye'],
-    reagents: ['Agarose: 1.2 g', 'TAE buffer: 100 mL', 'DNA ladder: 5 uL', 'Sample DNA: 10 uL', 'Loading dye: 2 uL'],
-    equipment: ['Gel tank', 'Power supply', 'UV or blue-light transilluminator'],
-    procedure: ['Prepare agarose gel.', 'Place gel in running buffer.', 'Mix DNA sample with loading dye.', 'Load ladder and samples.', 'Run gel at suitable voltage.', 'Visualize and compare DNA bands.'],
-  }),
-  createExperiment({
-    slug: 'elisa',
-    title: 'ELISA',
-    category: 'Immunology',
-    duration: '50 min',
-    difficulty: 'Intermediate',
-    icon: Beaker,
-    objective: 'Detect antigen or antibody presence using enzyme-linked colorimetric signal.',
-    principle: 'Specific antigen-antibody binding is detected through an enzyme reaction that produces a measurable color change.',
-    applications: ['Clinical diagnostics', 'Vaccine response monitoring', 'Protein detection'],
-    materials: ['Microplate', 'Plate sealers', 'Wash bottle', 'Absorbent paper'],
-    reagents: ['Coating antigen: 100 uL/well', 'Blocking buffer: 200 uL/well', 'Primary antibody: 100 uL/well', 'Substrate: 100 uL/well'],
-    equipment: ['Microplate reader', 'Multichannel pipette', 'Incubator'],
-    procedure: ['Coat wells with antigen.', 'Block non-specific binding sites.', 'Add sample or antibody.', 'Wash wells thoroughly.', 'Add enzyme conjugate and substrate.', 'Read absorbance.'],
-  }),
-  createExperiment({
-    slug: 'microscopy',
-    title: 'Microscopy',
-    category: 'Cell Biology',
-    duration: '30 min',
-    difficulty: 'Beginner',
-    icon: Eye,
-    objective: 'Prepare and observe biological samples using correct focusing and magnification technique.',
-    principle: 'Light microscopy uses lenses to magnify specimens and reveal cellular structures through contrast and staining.',
-    applications: ['Cell morphology study', 'Microbial observation', 'Histology training'],
-    materials: ['Glass slides', 'Coverslips', 'Prepared sample', 'Lens paper'],
-    reagents: ['Methylene blue: 1 drop', 'Immersion oil: 1 drop when needed', 'Distilled water: 1 drop'],
-    equipment: ['Compound microscope', 'Slide warmer', 'Dropper'],
-    procedure: ['Clean slide and coverslip.', 'Place sample on slide.', 'Add stain if required.', 'Apply coverslip carefully.', 'Focus under low power.', 'Increase magnification and record observations.'],
-  }),
-  createExperiment({
-    slug: 'cell-culture',
-    title: 'Cell Culture',
-    category: 'Biotechnology',
-    duration: '60 min',
-    difficulty: 'Advanced',
-    icon: TestTube2,
-    objective: 'Understand aseptic handling, media preparation, and basic culture maintenance.',
-    principle: 'Cells require sterile handling, suitable nutrients, controlled temperature, and CO2 conditions for growth.',
-    applications: ['Drug screening', 'Vaccine research', 'Tissue engineering'],
-    materials: ['Culture flask', 'Sterile pipettes', 'Cell suspension', 'Waste container'],
-    reagents: ['Culture medium: 10 mL', 'FBS: 10%', 'Antibiotic solution: 1%', 'PBS: 5 mL'],
-    equipment: ['Biosafety cabinet', 'CO2 incubator', 'Inverted microscope'],
-    procedure: ['Disinfect work area.', 'Warm media and reagents.', 'Transfer cells aseptically.', 'Add complete medium.', 'Incubate under controlled conditions.', 'Observe confluency and contamination.'],
-  }),
-  createExperiment({
-    slug: 'crispr-guide-design',
-    title: 'CRISPR Guide Design',
-    category: 'Genetic Engineering',
-    duration: '55 min',
-    difficulty: 'Advanced',
-    icon: BrainCircuit,
-    objective: 'Select a guide RNA sequence using target specificity and off-target risk criteria.',
-    principle: 'CRISPR-Cas systems use guide RNA complementarity to direct nuclease activity to a target DNA sequence.',
-    applications: ['Functional genomics', 'Gene editing planning', 'Mutation modeling'],
-    materials: ['Target gene sequence', 'Guide candidate list', 'Scoring worksheet'],
-    reagents: ['In silico module only: no wet-lab reagents required'],
-    equipment: ['Sequence analysis workstation', 'Guide design software'],
-    procedure: ['Paste target DNA sequence.', 'Identify PAM-adjacent regions.', 'Generate guide candidates.', 'Compare GC content and specificity.', 'Review off-target risk.', 'Select best guide for simulation.'],
-  }),
-  createExperiment({
-    slug: 'bacterial-transformation',
-    title: 'Bacterial Transformation',
-    category: 'Microbiology',
-    duration: '40 min',
-    difficulty: 'Beginner',
-    icon: FlaskConical,
-    objective: 'Introduce plasmid DNA into competent bacteria and understand selection logic.',
-    principle: 'Competent cells can uptake plasmid DNA after heat shock or electroporation and grow on selective media.',
-    applications: ['Cloning workflows', 'Protein expression', 'Plasmid propagation'],
-    materials: ['Competent cells', 'Plasmid DNA', 'Microcentrifuge tubes', 'Agar plates'],
-    reagents: ['Competent cells: 50 uL', 'Plasmid DNA: 5 uL', 'SOC medium: 450 uL', 'Antibiotic agar plate: 1'],
-    equipment: ['Water bath', 'Incubator', 'Sterile spreader'],
-    procedure: ['Thaw competent cells on ice.', 'Add plasmid DNA gently.', 'Perform heat shock.', 'Recover cells in SOC medium.', 'Plate on selective agar.', 'Incubate and count colonies.'],
-  }),
-  createExperiment({
-    slug: 'protein-assay',
-    title: 'Protein Assay',
-    category: 'Biochemistry',
-    duration: '35 min',
-    difficulty: 'Beginner',
-    icon: BarChart3,
-    objective: 'Estimate unknown protein concentration using standards and absorbance comparison.',
-    principle: 'Colorimetric protein assays correlate absorbance intensity with protein concentration using a standard curve.',
-    applications: ['Sample normalization', 'Enzyme studies', 'Protein purification tracking'],
-    materials: ['Cuvettes', 'Protein standards', 'Unknown sample', 'Assay tubes'],
-    reagents: ['Protein standard: 0-1 mg/mL', 'Assay reagent: 1 mL/tube', 'Unknown sample: 20 uL'],
-    equipment: ['Spectrophotometer', 'Vortex mixer', 'Micropipettes'],
-    procedure: ['Prepare protein standards.', 'Add assay reagent.', 'Add unknown sample.', 'Incubate for color development.', 'Measure absorbance.', 'Calculate concentration from standard curve.'],
-  }),
-];
 
 const studentModules = [
   { name: 'DNA Extraction', progress: 92, score: 'A', next: 'Submit reflection' },
@@ -395,60 +284,8 @@ function ShieldIcon(props) {
   return <LockKeyhole {...props} />;
 }
 
-function createExperiment(experiment) {
-  return {
-    status: 'Ready',
-    introduction: `${experiment.title} is a guided BioLabX learning module designed to help learners understand the workflow before entering a real laboratory.`,
-    safety: [
-      'Wear lab coat, gloves, and eye protection.',
-      'Label all samples before handling.',
-      'Avoid contamination by using clean tips and sterile technique.',
-      'Dispose biological and chemical waste according to lab rules.',
-    ],
-    commonErrors: [
-      'Skipping labels or mixing sample order.',
-      'Using incorrect volumes or contaminated tips.',
-      'Ignoring incubation or run-time conditions.',
-      'Recording observations without controls.',
-    ],
-    video: 'Educational video placeholder: add an approved lecture, protocol walkthrough, or institution-hosted training video.',
-    simulation3d: '3D simulation placeholder: future interactive lab model will appear here.',
-    interactiveSimulation: [
-      'Review the protocol sequence.',
-      'Select correct materials.',
-      'Check safety readiness.',
-      'Interpret the simulated result.',
-    ],
-    resultAnalysis: [
-      'Compare observed result with the expected control.',
-      'Identify whether the workflow produced a valid output.',
-      'Record one possible source of error and one improvement.',
-    ],
-    vivaQuestions: [
-      `What is the main purpose of ${experiment.title}?`,
-      'Why are controls important in this experiment?',
-      'Which step is most sensitive to handling error?',
-      'How would you confirm the result is valid?',
-    ],
-    mcq: [
-      {
-        question: `What should be completed before starting ${experiment.title}?`,
-        options: ['Safety and material check', 'Certificate download', 'Skipping controls', 'Discarding observations'],
-        answer: 'Safety and material check',
-      },
-      {
-        question: 'What makes an experiment result reliable?',
-        options: ['Controls and accurate records', 'Random labels', 'Unmeasured volumes', 'No repeat observations'],
-        answer: 'Controls and accurate records',
-      },
-      {
-        question: 'What should learners do after completing the simulation?',
-        options: ['Analyze results and note errors', 'Close without review', 'Ignore procedure steps', 'Change data randomly'],
-        answer: 'Analyze results and note errors',
-      },
-    ],
-    ...experiment,
-  };
+function getExperimentIcon(experiment) {
+  return experimentIconMap[experiment.iconKey] ?? FlaskConical;
 }
 
 function App() {
@@ -611,7 +448,10 @@ function AppShell() {
           />
           <Route path="/forgot-password" element={<ForgotPasswordPage onNavigate={goToPage} />} />
           <Route path="/experiments" element={<ExperimentsPage />} />
-          <Route path="/experiments/:experimentSlug" element={<ExperimentDetailPage />} />
+          <Route
+            path="/experiments/:experimentSlug"
+            element={<ExperimentDetailPage user={user} profile={profile} onNavigate={goToPage} />}
+          />
           <Route path="/gel-electrophoresis" element={<Navigate to="/experiments/gel-electrophoresis" replace />} />
           <Route
             path="/student"
@@ -1669,7 +1509,7 @@ function ExperimentsPage() {
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {experiments.map((experiment) => {
-          const Icon = experiment.icon;
+          const Icon = getExperimentIcon(experiment);
 
           return (
             <article
@@ -1710,10 +1550,12 @@ function ExperimentsPage() {
   );
 }
 
-function ExperimentDetailPage() {
+function ExperimentDetailPage({ user, profile, onNavigate }) {
   const { experimentSlug } = useParams();
   const navigate = useNavigate();
   const experiment = experiments.find((item) => item.slug === experimentSlug);
+  const [simulationComplete, setSimulationComplete] = useState(false);
+  const [quizResult, setQuizResult] = useState(null);
 
   if (!experiment) {
     return (
@@ -1730,7 +1572,7 @@ function ExperimentDetailPage() {
     );
   }
 
-  const Icon = experiment.icon;
+  const Icon = getExperimentIcon(experiment);
 
   return (
     <PageShell>
@@ -1773,14 +1615,23 @@ function ExperimentDetailPage() {
       <ExperimentListSection title="Equipment Used" items={experiment.equipment} />
       <ExperimentListSection title="Safety Precautions" items={experiment.safety} />
       <ExperimentListSection title="Step-by-Step Procedure" items={experiment.procedure} ordered />
-      <ExperimentListSection title="Common Errors" items={experiment.commonErrors} />
-      <VideoPlaceholder experiment={experiment} />
-      <Simulation3DPlaceholder experiment={experiment} />
-      <InteractiveSimulation experiment={experiment} />
-      <ExperimentListSection title="Result Analysis" items={experiment.resultAnalysis} />
+      <ExperimentListSection title="Common Mistakes" items={experiment.commonMistakes} />
+      <EducationalVideo experiment={experiment} />
+      <Interactive3DSimulation
+        experiment={experiment}
+        onComplete={() => setSimulationComplete(true)}
+      />
+      <ExperimentListSection title="Result Interpretation" items={experiment.resultInterpretation} />
       <ExperimentListSection title="Viva Questions" items={experiment.vivaQuestions} ordered />
-      <McqQuiz experiment={experiment} />
-      <CertificateSection experiment={experiment} />
+      <McqQuiz experiment={experiment} user={user} onSubmitScore={setQuizResult} />
+      <CertificateSection
+        experiment={experiment}
+        user={user}
+        profile={profile}
+        quizResult={quizResult}
+        simulationComplete={simulationComplete}
+        onNavigate={onNavigate}
+      />
     </PageShell>
   );
 }
@@ -1810,93 +1661,170 @@ function ExperimentListSection({ title, items, ordered = false }) {
   );
 }
 
-function VideoPlaceholder({ experiment }) {
+function EducationalVideo({ experiment }) {
   return (
-    <Panel title="Embedded Educational Video Section" subtitle="Ready for institution-approved videos">
-      <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
-        <div>
-          <PlayCircle className="mx-auto text-lab-700" size={34} />
-          <p className="mt-3 text-sm font-semibold text-ink">{experiment.title} video module</p>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{experiment.video}</p>
+    <Panel title="Educational Video" subtitle="Lecture or protocol walkthrough area">
+      {experiment.videoUrl ? (
+        <div className="aspect-video overflow-hidden rounded-lg border border-slate-200 bg-slate-950">
+          <iframe
+            className="h-full w-full"
+            src={experiment.videoUrl}
+            title={`${experiment.title} educational video`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
         </div>
-      </div>
+      ) : (
+        <div className="flex min-h-40 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
+          <div>
+            <PlayCircle className="mx-auto text-lab-700" size={34} />
+            <p className="mt-3 text-sm font-semibold text-ink">
+              Institution-approved video will be added soon.
+            </p>
+          </div>
+        </div>
+      )}
     </Panel>
   );
 }
 
-function Simulation3DPlaceholder({ experiment }) {
-  return (
-    <Panel title="3D Simulation Placeholder Section" subtitle="Future immersive model area">
-      <div className="grid gap-4 rounded-lg border border-slate-200 bg-slate-50 p-5 md:grid-cols-[0.8fr_1.2fr]">
-        <div className="flex aspect-video items-center justify-center rounded-md bg-white text-lab-700">
-          <Microscope size={46} />
-        </div>
-        <div>
-          <h3 className="font-bold text-ink">{experiment.title} virtual lab model</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{experiment.simulation3d}</p>
-        </div>
-      </div>
-    </Panel>
-  );
-}
+function Interactive3DSimulation({ experiment, onComplete }) {
+  const [checkedSafety, setCheckedSafety] = useState([]);
+  const [activeStep, setActiveStep] = useState(0);
+  const allSafetyChecked = checkedSafety.length === experiment.safety.length;
+  const canStart = allSafetyChecked;
 
-function InteractiveSimulation({ experiment }) {
-  const [checkedSteps, setCheckedSteps] = useState([]);
-  const score = Math.round((checkedSteps.length / experiment.interactiveSimulation.length) * 100);
-
-  const toggleStep = (step) => {
-    setCheckedSteps((current) =>
-      current.includes(step) ? current.filter((item) => item !== step) : [...current, step],
+  const toggleSafety = (item) => {
+    setCheckedSafety((current) =>
+      current.includes(item) ? current.filter((entry) => entry !== item) : [...current, item],
     );
   };
 
+  const handleStart = () => {
+    if (!canStart) {
+      return;
+    }
+
+    setActiveStep(0);
+    onComplete();
+  };
+
   return (
-    <Panel title="Interactive Simulation" subtitle="Simple guided interaction for MVP learning flow">
-      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-3">
-          {experiment.interactiveSimulation.map((step) => (
-            <label
-              key={step}
-              className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-700"
-            >
-              <input
-                type="checkbox"
-                checked={checkedSteps.includes(step)}
-                onChange={() => toggleStep(step)}
-                className="h-4 w-4"
+    <Panel title="Interactive 3D Simulation" subtitle="Prepared for future Three.js or GLB model integration">
+      <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <div className="flex aspect-video items-center justify-center rounded-md border border-slate-200 bg-white text-center">
+            {experiment.modelUrl ? (
+              <model-viewer
+                src={experiment.modelUrl}
+                camera-controls
+                auto-rotate
+                className="h-full w-full"
+                aria-label={`${experiment.title} 3D model`}
               />
-              {step}
-            </label>
-          ))}
-        </div>
-        <div className="rounded-lg bg-lab-50 p-5">
-          <p className="text-sm font-bold text-lab-700">Simulation progress</p>
-          <p className="mt-3 text-4xl font-bold text-ink">{score}%</p>
-          <div className="mt-4 h-2 rounded-full bg-white">
-            <div className="h-2 rounded-full bg-lab-600" style={{ width: `${score}%` }} />
+            ) : (
+              <div className="p-5">
+                <Microscope className="mx-auto text-lab-700" size={48} />
+                <p className="mt-3 text-sm font-semibold text-ink">
+                  3D model is being prepared for this experiment.
+                </p>
+              </div>
+            )}
           </div>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            Complete each step to unlock stronger result analysis readiness.
-          </p>
+          <div className="mt-4 grid gap-3 rounded-md bg-white p-4 text-sm md:grid-cols-3">
+            <Control label="View" value="Rotate / zoom ready" />
+            <Control label="Mode" value="Guided protocol" />
+            <Control label="Status" value={canStart ? 'Ready' : 'Safety pending'} />
+          </div>
+        </div>
+
+        <div className="grid gap-4">
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <h3 className="font-bold text-ink">Procedure Step Panel</h3>
+            <div className="mt-3 space-y-2">
+              {experiment.simulationSteps.map((step, index) => (
+                <button
+                  key={step}
+                  onClick={() => setActiveStep(index)}
+                  className={`w-full rounded-md px-3 py-2 text-left text-sm font-semibold ${
+                    activeStep === index ? 'bg-lab-50 text-lab-700' : 'bg-slate-50 text-slate-600'
+                  }`}
+                >
+                  {index + 1}. {step}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <h3 className="font-bold text-ink">Safety Checklist</h3>
+            <div className="mt-3 space-y-2">
+              {experiment.safety.map((item) => (
+                <label key={item} className="flex cursor-pointer gap-2 text-sm leading-6 text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={checkedSafety.includes(item)}
+                    onChange={() => toggleSafety(item)}
+                    className="mt-1 h-4 w-4"
+                  />
+                  {item}
+                </label>
+              ))}
+            </div>
+            <button
+              onClick={handleStart}
+              disabled={!canStart}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-lab-700 px-4 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              <PlayCircle size={17} />
+              Start Simulation
+            </button>
+          </div>
         </div>
       </div>
     </Panel>
   );
 }
 
-function McqQuiz({ experiment }) {
+function McqQuiz({ experiment, user, onSubmitScore }) {
   const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
   const answeredCount = Object.keys(answers).length;
-  const score = experiment.mcq.reduce(
+  const score = experiment.quizQuestions.reduce(
     (total, item, index) => total + (answers[index] === item.answer ? 1 : 0),
     0,
   );
-  const percentage = Math.round((score / experiment.mcq.length) * 100);
+  const percentage = Math.round((score / experiment.quizQuestions.length) * 100);
+
+  const submitQuiz = async () => {
+    setSubmitted(true);
+    const result = {
+      score,
+      total: experiment.quizQuestions.length,
+      percentage,
+    };
+    onSubmitScore(result);
+
+    if (!user || !supabase) {
+      setSaveStatus(user ? '' : 'Login to save this score to your BioLabX profile.');
+      return;
+    }
+
+    const { error } = await supabase.from('quiz_results').insert({
+      student_id: user.id,
+      score,
+      total_marks: experiment.quizQuestions.length,
+      attempt_number: 1,
+    });
+
+    setSaveStatus(error ? 'Score calculated, but Supabase save is not available yet.' : 'Score saved to Supabase.');
+  };
 
   return (
-    <Panel title="MCQ Quiz" subtitle="Knowledge check with score tracking">
+    <Panel title="Knowledge Check Quiz" subtitle="Answer all questions, submit, then review explanations">
       <div className="space-y-5">
-        {experiment.mcq.map((item, index) => (
+        {experiment.quizQuestions.map((item, index) => (
           <div key={item.question} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
             <p className="font-bold text-ink">{index + 1}. {item.question}</p>
             <div className="mt-3 grid gap-2">
@@ -1912,35 +1840,83 @@ function McqQuiz({ experiment }) {
                 </label>
               ))}
             </div>
+            {submitted && (
+              <div className="mt-3 rounded-md bg-white p-3 text-sm leading-6">
+                <p className="font-bold text-ink">Correct answer: {item.answer}</p>
+                <p className="mt-1 text-slate-600">{item.explanation}</p>
+              </div>
+            )}
           </div>
         ))}
         <div className="rounded-lg border border-lab-100 bg-lab-50 p-4">
           <p className="text-sm font-bold text-lab-700">Score Tracking</p>
           <p className="mt-2 text-2xl font-bold text-ink">
-            {score}/{experiment.mcq.length} correct ({percentage}%)
+            {score}/{experiment.quizQuestions.length} correct ({percentage}%)
           </p>
           <p className="mt-1 text-sm text-slate-600">
-            Answered {answeredCount} of {experiment.mcq.length} questions.
+            Answered {answeredCount} of {experiment.quizQuestions.length} questions.
           </p>
+          <button
+            onClick={submitQuiz}
+            disabled={answeredCount < experiment.quizQuestions.length}
+            className="mt-4 rounded-md bg-ink px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            Submit Quiz
+          </button>
+          {saveStatus && <p className="mt-3 text-sm font-semibold text-slate-600">{saveStatus}</p>}
         </div>
       </div>
     </Panel>
   );
 }
 
-function CertificateSection({ experiment }) {
+function CertificateSection({ experiment, user, profile, quizResult, simulationComplete, onNavigate }) {
+  const completed = Boolean(simulationComplete && quizResult);
+  const certificateId = `BLX-${experiment.slug.toUpperCase().slice(0, 8)}-${new Date().getFullYear()}`;
+  const studentName = profile?.full_name ?? user?.email ?? 'Guest Learner';
+  const completionDate = new Date().toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  const downloadCertificate = () => {
+    if (!user) {
+      onNavigate('login');
+      return;
+    }
+
+    window.print();
+  };
+
   return (
-    <Panel title="Completion Certificate" subtitle="Certificate preview for completed learning modules">
-      <div className="rounded-lg border-2 border-dashed border-lab-200 bg-white p-6 text-center">
+    <Panel title="Completion Certificate" subtitle="Printable certificate after simulation and quiz completion">
+      <div className="rounded-lg border-2 border-lab-200 bg-white p-6 text-center">
         <AwardIcon />
-        <h3 className="mt-3 text-2xl font-bold text-ink">BioLabX Completion Certificate</h3>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          This placeholder certificate will be unlocked after verified completion of {experiment.title},
-          quiz passing score, and saved progress.
+        <p className="mt-3 text-xs font-bold uppercase tracking-[0.18em] text-lab-700">BioLabX</p>
+        <h3 className="mt-2 text-2xl font-bold text-ink">Completion Certificate</h3>
+        <p className="mt-4 text-sm text-slate-500">This certifies that</p>
+        <p className="mt-2 text-3xl font-bold text-ink">{studentName}</p>
+        <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+          has completed the BioLabX learning module for <strong>{experiment.title}</strong>.
         </p>
-        <button className="mt-5 rounded-md bg-slate-200 px-4 py-2 text-sm font-bold text-slate-500" disabled>
-          Certificate unlocks after completion
-          </button>
+        <div className="mt-5 grid gap-3 text-sm md:grid-cols-3">
+          <ProfileFact label="Score" value={quizResult ? `${quizResult.score}/${quizResult.total} (${quizResult.percentage}%)` : 'Quiz pending'} />
+          <ProfileFact label="Completion date" value={completed ? completionDate : 'Pending'} />
+          <ProfileFact label="Certificate ID" value={certificateId} />
+        </div>
+        {!user && (
+          <p className="mt-4 rounded-md bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+            Login is required to download the certificate. Preview remains available.
+          </p>
+        )}
+        <button
+          onClick={downloadCertificate}
+          disabled={!completed}
+          className="mt-5 rounded-md bg-lab-700 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          Download Certificate
+        </button>
       </div>
     </Panel>
   );
