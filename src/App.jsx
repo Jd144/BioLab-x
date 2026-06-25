@@ -611,7 +611,7 @@ function AppShell() {
       const fallbackProfile = buildProfileFromUser(currentUser);
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, user_id, full_name, email, mobile_number, role, verification_status, is_verified, status, course, batch_year, entry_number, roll_number, department, institute, institution, designation, subjects_taught, lab_name, teacher_name, instructor_name, supervisor_name, pi_name, research_area, current_project, publications_count, conferences_count, responsibility, experience, phd_year, number_of_labs, coordinator_name, official_email, organization, attendance_status, class_name, batch_name, bio')
+        .select('id, user_id, full_name, email, mobile_number, role, verification_status, status, course, batch_year, entry_number, roll_number, department, institute, institution, designation, subjects_taught, lab_name, teacher_name, instructor_name, supervisor_name, pi_name, research_area, current_project, publications_count, conferences_count, responsibility, experience, phd_year, number_of_labs, coordinator_name, official_email, organization, attendance_status, class_name, batch_name, bio')
         .eq('id', currentUser.id)
         .single();
 
@@ -622,7 +622,6 @@ function AppShell() {
             role: 'admin',
             email: currentUser.email,
             verification_status: 'approved',
-            is_verified: true,
             status: 'active',
           }
         : nextProfile;
@@ -639,7 +638,6 @@ function AppShell() {
           email: currentUser.email,
           role: 'admin',
           verification_status: 'approved',
-          is_verified: true,
           status: 'active',
         });
       }
@@ -883,7 +881,6 @@ function buildProfileFromUser(user) {
     organization: metadata.organization ?? '',
     bio: metadata.bio ?? '',
     verification_status: isAdminEmail(user.email) || metadata.role === 'student' ? 'approved' : 'pending',
-    is_verified: isAdminEmail(user.email) || metadata.role === 'student',
     status: 'active',
     attendance_status: metadata.attendance_status ?? '',
     class_name: metadata.class_name ?? '',
@@ -1128,7 +1125,6 @@ function ProtectedRoute({ isLoading, user, profile, allowedRole, children }) {
   if (
     verificationRequiredRoles.includes(userRole)
     && profile?.verification_status !== 'approved'
-    && !profile?.is_verified
   ) {
     return <VerificationPendingPage role={userRole} profile={profile} />;
   }
@@ -1321,7 +1317,6 @@ function SignupPage({ onNavigate, onAuthSuccess }) {
         user_id: data.user.id,
         ...profilePayload,
         verification_status: verificationStatus,
-        is_verified: role === 'student',
         status: 'active',
       };
       const { error: profileError } = await supabase.from('profiles').upsert(fullProfilePayload);
@@ -1332,7 +1327,6 @@ function SignupPage({ onNavigate, onAuthSuccess }) {
           full_name: formData.full_name,
           role,
           verification_status: verificationStatus,
-          is_verified: role === 'student',
           status: 'active',
         });
       }
@@ -2709,12 +2703,12 @@ function AdminDashboard({ user, profile }) {
                     </div>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2 lg:min-w-72">
-                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'approved', is_verified: true, status: 'active' }, 'approve_user')} className="bg-emerald-600 text-white">Approve</AdminActionButton>
-                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'rejected', is_verified: false, status: 'rejected' }, 'reject_user')} className="bg-rose-600 text-white">Reject</AdminActionButton>
-                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { status: 'suspended', verification_status: 'suspended', is_verified: false }, 'suspend_user')} className="bg-amber-600 text-white">Suspend</AdminActionButton>
-                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { status: 'active', verification_status: 'approved', is_verified: true }, 'restore_user')} className="bg-slate-800 text-white">Restore</AdminActionButton>
-                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { is_verified: true, verification_status: 'approved' }, 'mark_verified')} className="border border-slate-200 bg-white text-slate-700">Verify</AdminActionButton>
-                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { is_verified: false, verification_status: 'pending' }, 'mark_unverified')} className="border border-slate-200 bg-white text-slate-700">Unverify</AdminActionButton>
+                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'approved', status: 'active' }, 'approve_user')} className="bg-emerald-600 text-white">Approve</AdminActionButton>
+                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'rejected', status: 'rejected' }, 'reject_user')} className="bg-rose-600 text-white">Reject</AdminActionButton>
+                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { status: 'suspended', verification_status: 'suspended' }, 'suspend_user')} className="bg-amber-600 text-white">Suspend</AdminActionButton>
+                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { status: 'active', verification_status: 'approved' }, 'restore_user')} className="bg-slate-800 text-white">Restore</AdminActionButton>
+                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'approved' }, 'mark_verified')} className="border border-slate-200 bg-white text-slate-700">Verify</AdminActionButton>
+                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'pending' }, 'mark_unverified')} className="border border-slate-200 bg-white text-slate-700">Unverify</AdminActionButton>
                     <select
                       value={targetUser.role}
                       onChange={(event) => updateUser(targetUser, { role: event.target.value }, 'change_role')}

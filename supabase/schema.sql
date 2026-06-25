@@ -412,7 +412,6 @@ begin
   update public.profiles
   set
     verification_status = coalesce(profile_updates->>'verification_status', verification_status),
-    is_verified = coalesce((profile_updates->>'is_verified')::boolean, is_verified),
     status = coalesce(profile_updates->>'status', status),
     role = case
       when profile_updates ? 'role' then (profile_updates->>'role')::public.user_role
@@ -551,7 +550,6 @@ begin
     mobile_number,
     role,
     verification_status,
-    is_verified,
     status,
     course,
     batch_year,
@@ -576,7 +574,6 @@ begin
     new.raw_user_meta_data->>'mobile_number',
     coalesce(new.raw_user_meta_data->>'role', 'student')::public.user_role,
     case when new.email = 'charanjaydeep712@gmail.com' or coalesce(new.raw_user_meta_data->>'role', 'student') = 'student' then 'approved' else 'pending' end,
-    (new.email = 'charanjaydeep712@gmail.com' or coalesce(new.raw_user_meta_data->>'role', 'student') = 'student'),
     'active',
     new.raw_user_meta_data->>'course',
     new.raw_user_meta_data->>'batch_year',
