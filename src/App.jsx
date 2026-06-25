@@ -1015,6 +1015,51 @@ async function upsertProfileCompat(profilePayload) {
   return result;
 }
 
+function getMissingColumnFromErrorMessage(message, tableName) {
+  if (!message) {
+    return '';
+  }
+
+  const schemaCachePattern = new RegExp(`Could not find the '([^']+)' column of '${tableName}'`, 'i');
+  const missingCacheMatch = message.match(schemaCachePattern);
+  if (missingCacheMatch?.[1]) {
+    return missingCacheMatch[1];
+  }
+
+  const postgresPattern = new RegExp(`column\\s+${tableName}\\.([^\\s]+)\\s+does not exist`, 'i');
+  const missingColumnMatch = message.match(postgresPattern);
+  if (missingColumnMatch?.[1]) {
+    return missingColumnMatch[1].replace(/"/g, '');
+  }
+
+  return '';
+}
+
+async function insertClassCompat(classPayload) {
+  if (!supabase) {
+    return { error: new Error('Supabase is not configured.') };
+  }
+
+  let payload = { ...classPayload };
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const result = await supabase.from('classes').insert(payload);
+    if (!result.error) {
+      return result;
+    }
+
+    const missingColumn = getMissingColumnFromErrorMessage(result.error.message, 'classes');
+    if (!missingColumn || !(missingColumn in payload)) {
+      return result;
+    }
+
+    const { [missingColumn]: _removed, ...nextPayload } = payload;
+    payload = nextPayload;
+  }
+
+  return supabase.from('classes').insert(payload);
+}
+
 function isAdminEmail(email) {
   return email?.toLowerCase() === ADMIN_EMAIL;
 }
@@ -2474,11 +2519,13 @@ function TeacherCreateClassForm({ user, reload }) {
     if (!supabase || !user) return;
     setSaving(true);
     setMessage('');
-    const { error } = await supabase.from('classes').insert({ teacher_id: user.id, ...form });
+    const { error } = await insertClassCompat({ teacher_id: user.id, ...form });
     setSaving(false);
     setMessage(
       error
-        ? `Could not create class: ${error.message}`
+        ? error.message?.toLowerCase().includes('row-level security')
+          ? 'Could not create class: Supabase policy is blocking class creation. Apply the latest classes insert policy in Supabase SQL Editor.'
+          : `Could not create class: ${error.message}`
         : 'Class created.',
     );
     if (!error) {
