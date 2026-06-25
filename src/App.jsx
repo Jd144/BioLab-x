@@ -615,8 +615,18 @@ function AppShell() {
         .select('*')
         .eq('id', currentUser.id)
         .single();
+      const { data: verificationRequest } = await supabase
+        .from('verification_requests')
+        .select('status')
+        .eq('user_id', currentUser.id)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      const nextProfile = applyAdminOverride(error ? fallbackProfile : { ...fallbackProfile, ...data });
+      const nextProfile = mergeVerificationStatus(
+        applyAdminOverride(error ? fallbackProfile : { ...fallbackProfile, ...data }),
+        verificationRequest?.status,
+      );
       const resolvedProfile = isAdminEmail(currentUser.email)
         ? {
             ...nextProfile,
@@ -920,6 +930,17 @@ function applyAdminOverride(profileLike) {
   return {
     ...profileLike,
     ...getAdminOverrideForProfile(profileLike),
+  };
+}
+
+function mergeVerificationStatus(profileLike, verificationStatus) {
+  if (!verificationStatus) {
+    return profileLike;
+  }
+
+  return {
+    ...profileLike,
+    verification_status: verificationStatus,
   };
 }
 
@@ -2629,7 +2650,23 @@ function AdminDashboard({ user, profile }) {
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
-    setUsers((profilesData ?? []).map((item) => applyAdminOverride(item)));
+    const { data: verificationRequests } = await supabase
+      .from('verification_requests')
+      .select('user_id, status, updated_at')
+      .order('updated_at', { ascending: false });
+
+    const verificationMap = new Map();
+    (verificationRequests ?? []).forEach((request) => {
+      if (!verificationMap.has(request.user_id)) {
+        verificationMap.set(request.user_id, request.status);
+      }
+    });
+
+    setUsers(
+      (profilesData ?? []).map((item) =>
+        mergeVerificationStatus(applyAdminOverride(item), verificationMap.get(item.id)),
+      ),
+    );
 
     const countTables = ['classes', 'labs', 'experiments', 'inventory_items', 'certificates', 'verification_requests', 'platform_announcements', 'admin_actions'];
     const nextCounts = {};
@@ -2689,6 +2726,16 @@ function AdminDashboard({ user, profile }) {
       if (error) {
         if (error.message?.includes('verification_status')) {
           saveAdminOverride(targetUser, { verification_status: payload.verification_status ?? 'pending' });
+          await supabase.from('verification_requests').upsert({
+            user_id: targetUser.id,
+            role_requested: targetUser.role,
+            status: payload.verification_status ?? 'pending',
+            details: {
+              full_name: targetUser.full_name,
+              email: targetUser.email,
+            },
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
           const compatibilityProfile = {
             ...targetUser,
             verification_status: payload.verification_status ?? targetUser.verification_status ?? 'pending',
@@ -2716,6 +2763,16 @@ function AdminDashboard({ user, profile }) {
         verification_status: updatedProfile.verification_status ?? payload.verification_status ?? targetUser.verification_status,
         role: updatedProfile.role ?? payload.role ?? targetUser.role,
       });
+      await supabase.from('verification_requests').upsert({
+        user_id: targetUser.id,
+        role_requested: updatedProfile.role ?? payload.role ?? targetUser.role,
+        status: updatedProfile.verification_status ?? payload.verification_status ?? targetUser.verification_status ?? 'pending',
+        details: {
+          full_name: targetUser.full_name,
+          email: targetUser.email,
+        },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' });
 
       supabase.from('admin_actions').insert({
         admin_id: user.id,
