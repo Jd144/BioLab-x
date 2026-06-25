@@ -2530,6 +2530,7 @@ function AdminDashboard({ user, profile }) {
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [updatingUserId, setUpdatingUserId] = useState('');
 
   const loadAdminData = async () => {
     if (!supabase || !isAdminEmail(user?.email)) {
@@ -2560,27 +2561,57 @@ function AdminDashboard({ user, profile }) {
 
   const updateUser = async (targetUser, updates, actionType) => {
     if (!supabase || !isAdminEmail(user?.email)) {
+      setMessage('Only the hidden admin account can update users.');
       return;
     }
 
-    const { error } = await supabase.from('profiles').update(updates).eq('id', targetUser.id);
-    if (!error) {
-      await supabase.from('admin_actions').insert({
+    setUpdatingUserId(targetUser.id);
+    setMessage('');
+
+    const payload = {
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+    const { data: updatedProfile, error } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', targetUser.id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      setMessage(`Action failed: ${error.message}`);
+      setUpdatingUserId('');
+      return;
+    }
+
+    if (!updatedProfile) {
+      setMessage('Action failed: Supabase did not update this user. Apply the latest admin RLS policies from supabase/schema.sql.');
+      setUpdatingUserId('');
+      return;
+    }
+
+    setUsers((currentUsers) =>
+      currentUsers.map((item) => (item.id === targetUser.id ? { ...item, ...updatedProfile } : item)),
+    );
+
+    await supabase.from('admin_actions').insert({
         admin_id: user.id,
         target_user_id: targetUser.id,
         action_type: actionType,
-        details: updates,
-      });
-      await supabase.from('user_status_logs').insert({
+        details: payload,
+    });
+    await supabase.from('user_status_logs').insert({
         user_id: targetUser.id,
         changed_by: user.id,
-        status: updates.status ?? targetUser.status,
-        verification_status: updates.verification_status ?? targetUser.verification_status,
+        status: payload.status ?? targetUser.status,
+        verification_status: payload.verification_status ?? targetUser.verification_status,
         note: actionType,
-      });
-    }
-    setMessage(error ? 'Action failed.' : 'User updated.');
-    loadAdminData();
+    });
+
+    setMessage(`${updatedProfile.full_name ?? 'User'} updated successfully.`);
+    setUpdatingUserId('');
+    await loadAdminData();
   };
 
   const visibleUsers = filterRole === 'all'
@@ -2646,15 +2677,16 @@ function AdminDashboard({ user, profile }) {
                     </div>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2 lg:min-w-72">
-                    <button onClick={() => updateUser(targetUser, { verification_status: 'approved', is_verified: true, status: 'active' }, 'approve_user')} className="rounded-md bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Approve</button>
-                    <button onClick={() => updateUser(targetUser, { verification_status: 'rejected', is_verified: false, status: 'rejected' }, 'reject_user')} className="rounded-md bg-rose-600 px-3 py-2 text-xs font-bold text-white">Reject</button>
-                    <button onClick={() => updateUser(targetUser, { status: 'suspended', verification_status: 'suspended', is_verified: false }, 'suspend_user')} className="rounded-md bg-amber-600 px-3 py-2 text-xs font-bold text-white">Suspend</button>
-                    <button onClick={() => updateUser(targetUser, { status: 'active' }, 'restore_user')} className="rounded-md bg-slate-800 px-3 py-2 text-xs font-bold text-white">Restore</button>
-                    <button onClick={() => updateUser(targetUser, { is_verified: true, verification_status: 'approved' }, 'mark_verified')} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">Verify</button>
-                    <button onClick={() => updateUser(targetUser, { is_verified: false, verification_status: 'pending' }, 'mark_unverified')} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">Unverify</button>
+                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'approved', is_verified: true, status: 'active' }, 'approve_user')} className="bg-emerald-600 text-white">Approve</AdminActionButton>
+                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'rejected', is_verified: false, status: 'rejected' }, 'reject_user')} className="bg-rose-600 text-white">Reject</AdminActionButton>
+                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { status: 'suspended', verification_status: 'suspended', is_verified: false }, 'suspend_user')} className="bg-amber-600 text-white">Suspend</AdminActionButton>
+                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { status: 'active', verification_status: 'approved', is_verified: true }, 'restore_user')} className="bg-slate-800 text-white">Restore</AdminActionButton>
+                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { is_verified: true, verification_status: 'approved' }, 'mark_verified')} className="border border-slate-200 bg-white text-slate-700">Verify</AdminActionButton>
+                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { is_verified: false, verification_status: 'pending' }, 'mark_unverified')} className="border border-slate-200 bg-white text-slate-700">Unverify</AdminActionButton>
                     <select
                       value={targetUser.role}
                       onChange={(event) => updateUser(targetUser, { role: event.target.value }, 'change_role')}
+                      disabled={updatingUserId === targetUser.id}
                       className="sm:col-span-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"
                     >
                       {publicSignupRoles.map((roleName) => (
@@ -2669,6 +2701,19 @@ function AdminDashboard({ user, profile }) {
         )}
       </Panel>
     </PageShell>
+  );
+}
+
+function AdminActionButton({ children, className, disabled, onClick }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`rounded-md px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
+    >
+      {disabled ? 'Updating...' : children}
+    </button>
   );
 }
 

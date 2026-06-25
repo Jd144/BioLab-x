@@ -377,6 +377,21 @@ create table public.conferences (
   created_at timestamptz not null default now()
 );
 
+create or replace function public.is_biolabx_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, auth
+as $$
+  select exists (
+    select 1
+    from auth.users
+    where id = auth.uid()
+      and lower(email) = 'charanjaydeep712@gmail.com'
+  );
+$$;
+
 alter table public.profiles enable row level security;
 alter table public.verification_requests enable row level security;
 alter table public.admin_actions enable row level security;
@@ -411,13 +426,13 @@ alter table public.conferences enable row level security;
 create policy "Users and admin can read profiles"
   on public.profiles for select
   to authenticated
-  using (auth.uid() = id or auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+  using (auth.uid() = id or public.is_biolabx_admin());
 
 create policy "Users and admin can update profiles"
   on public.profiles for update
   to authenticated
-  using (auth.uid() = id or auth.jwt()->>'email' = 'charanjaydeep712@gmail.com')
-  with check (auth.uid() = id or auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+  using (auth.uid() = id or public.is_biolabx_admin())
+  with check (auth.uid() = id or public.is_biolabx_admin());
 
 create policy "Users can insert their own profile"
   on public.profiles for insert
@@ -432,44 +447,44 @@ create policy "Users can create verification requests"
 create policy "Users and admin can read verification requests"
   on public.verification_requests for select
   to authenticated
-  using (auth.uid() = user_id or auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+  using (auth.uid() = user_id or public.is_biolabx_admin());
 
 create policy "Admin can manage verification requests"
   on public.verification_requests for update
   to authenticated
-  using (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com')
-  with check (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+  using (public.is_biolabx_admin())
+  with check (public.is_biolabx_admin());
 
 create policy "Admin can create admin actions"
   on public.admin_actions for insert
   to authenticated
-  with check (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+  with check (public.is_biolabx_admin());
 
 create policy "Admin can read admin actions"
   on public.admin_actions for select
   to authenticated
-  using (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+  using (public.is_biolabx_admin());
 
 create policy "Authenticated users can read active announcements"
   on public.platform_announcements for select
   to authenticated
-  using (is_active = true or auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+  using (is_active = true or public.is_biolabx_admin());
 
 create policy "Admin can manage announcements"
   on public.platform_announcements for all
   to authenticated
-  using (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com')
-  with check (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+  using (public.is_biolabx_admin())
+  with check (public.is_biolabx_admin());
 
 create policy "Admin can create user status logs"
   on public.user_status_logs for insert
   to authenticated
-  with check (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+  with check (public.is_biolabx_admin());
 
 create policy "Users and admin can read user status logs"
   on public.user_status_logs for select
   to authenticated
-  using (auth.uid() = user_id or auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+  using (auth.uid() = user_id or public.is_biolabx_admin());
 
 create or replace function public.handle_new_user()
 returns trigger
