@@ -848,11 +848,57 @@ function getAdminOverrides() {
   }
 }
 
-function getAdminOverride(userId) {
-  return getAdminOverrides()[userId] ?? {};
+function getAdminOverrideForProfile(profileLike) {
+  const overrides = getAdminOverrides();
+  const byId = profileLike?.id ? overrides[profileLike.id] : null;
+  const byEmail = profileLike?.email ? overrides[`email:${profileLike.email.toLowerCase()}`] : null;
+
+  return {
+    ...(byEmail ?? {}),
+    ...(byId ?? {}),
+  };
 }
 
-function saveAdminOverride(userId, patch) {
+function saveAdminOverride(profileLike, patch) {
+  if (typeof window === 'undefined' || !profileLike) {
+    return;
+  }
+
+  const overrides = getAdminOverrides();
+  if (profileLike.id) {
+    overrides[profileLike.id] = {
+      ...(overrides[profileLike.id] ?? {}),
+      ...patch,
+      updated_at: new Date().toISOString(),
+    };
+  }
+  if (profileLike.email) {
+    const emailKey = `email:${profileLike.email.toLowerCase()}`;
+    overrides[emailKey] = {
+      ...(overrides[emailKey] ?? {}),
+      ...patch,
+      updated_at: new Date().toISOString(),
+    };
+  }
+  window.localStorage.setItem(ADMIN_OVERRIDE_STORAGE_KEY, JSON.stringify(overrides));
+}
+
+function clearAdminOverride(profileLike) {
+  if (typeof window === 'undefined' || !profileLike) {
+    return;
+  }
+
+  const overrides = getAdminOverrides();
+  if (profileLike.id) {
+    delete overrides[profileLike.id];
+  }
+  if (profileLike.email) {
+    delete overrides[`email:${profileLike.email.toLowerCase()}`];
+  }
+  window.localStorage.setItem(ADMIN_OVERRIDE_STORAGE_KEY, JSON.stringify(overrides));
+}
+
+function saveAdminOverrideLegacy(userId, patch) {
   if (typeof window === 'undefined' || !userId) {
     return;
   }
@@ -873,7 +919,7 @@ function applyAdminOverride(profileLike) {
 
   return {
     ...profileLike,
-    ...getAdminOverride(profileLike.id),
+    ...getAdminOverrideForProfile(profileLike),
   };
 }
 
@@ -2583,7 +2629,7 @@ function AdminDashboard({ user, profile }) {
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
-    setUsers(profilesData ?? []);
+    setUsers((profilesData ?? []).map((item) => applyAdminOverride(item)));
 
     const countTables = ['classes', 'labs', 'experiments', 'inventory_items', 'certificates', 'verification_requests', 'platform_announcements', 'admin_actions'];
     const nextCounts = {};
@@ -2642,7 +2688,7 @@ function AdminDashboard({ user, profile }) {
 
       if (error) {
         if (error.message?.includes('verification_status')) {
-          saveAdminOverride(targetUser.id, { verification_status: payload.verification_status ?? 'pending' });
+          saveAdminOverride(targetUser, { verification_status: payload.verification_status ?? 'pending' });
           const compatibilityProfile = {
             ...targetUser,
             verification_status: payload.verification_status ?? targetUser.verification_status ?? 'pending',
@@ -2664,8 +2710,12 @@ function AdminDashboard({ user, profile }) {
       }
 
       setUsers((currentUsers) =>
-        currentUsers.map((item) => (item.id === targetUser.id ? { ...item, ...updatedProfile } : item)),
+        currentUsers.map((item) => (item.id === targetUser.id ? applyAdminOverride({ ...item, ...updatedProfile }) : item)),
       );
+      saveAdminOverride(targetUser, {
+        verification_status: updatedProfile.verification_status ?? payload.verification_status ?? targetUser.verification_status,
+        role: updatedProfile.role ?? payload.role ?? targetUser.role,
+      });
 
       supabase.from('admin_actions').insert({
         admin_id: user.id,
@@ -2690,9 +2740,13 @@ function AdminDashboard({ user, profile }) {
     }
   };
 
-  const visibleUsers = filterRole === 'all'
+  const filteredUsers = filterRole === 'all'
     ? users
     : users.filter((item) => item.role === filterRole);
+  const pendingUsers = filteredUsers.filter((item) => (item.verification_status ?? 'pending') === 'pending');
+  const approvedUsers = filteredUsers.filter((item) => (item.verification_status ?? 'pending') === 'approved');
+  const suspendedUsers = filteredUsers.filter((item) => item.verification_status === 'suspended');
+  const rejectedUsers = filteredUsers.filter((item) => item.verification_status === 'rejected');
 
   return (
     <PageShell>
@@ -2724,7 +2778,7 @@ function AdminDashboard({ user, profile }) {
         </div>
       </Panel>
 
-      <Panel title="User Management" subtitle="Approve, reject, suspend, restore, verify, and change roles.">
+      <Panel title="Verification Requests" subtitle="Pending requests appear here. Once approved, rejected, or suspended, they leave this section.">
         <div className="mb-4 max-w-xs">
           <SelectField
             label="Filter by role"
@@ -2733,48 +2787,43 @@ function AdminDashboard({ user, profile }) {
             options={[{ value: 'all', label: 'All roles' }, ...publicSignupRoles.map((roleName) => ({ value: roleName, label: formatRole(roleName) }))]}
           />
         </div>
-        {visibleUsers.length === 0 ? (
-          <EmptyState title="No data yet" text="No users match this filter." />
-        ) : (
-          <div className="space-y-4">
-            {visibleUsers.map((targetUser) => (
-              <article key={targetUser.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
-                  <div>
-                    <h3 className="font-bold text-ink">{targetUser.full_name ?? 'No name'}</h3>
-                    <p className="mt-1 text-sm text-slate-600">{targetUser.email ?? 'No email'}</p>
-                    <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
-                      <span><strong>Role:</strong> {formatRole(targetUser.role)}</span>
-                      <span><strong>Verification:</strong> {targetUser.verification_status ?? 'pending'}</span>
-                      <span><strong>Status:</strong> {deriveVerificationStateLabel(targetUser.verification_status)}</span>
-                      <span><strong>Institute:</strong> {targetUser.institute ?? 'Not available'}</span>
-                      <span><strong>Department:</strong> {targetUser.department ?? 'Not available'}</span>
-                      <span><strong>Mobile:</strong> {targetUser.mobile_number ?? 'Not available'}</span>
-                    </div>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:min-w-72">
-                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'approved' }, 'approve_user')} className="bg-emerald-600 text-white">Approve</AdminActionButton>
-                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'rejected' }, 'reject_user')} className="bg-rose-600 text-white">Reject</AdminActionButton>
-                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'suspended' }, 'suspend_user')} className="bg-amber-600 text-white">Suspend</AdminActionButton>
-                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'approved' }, 'restore_user')} className="bg-slate-800 text-white">Restore</AdminActionButton>
-                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'approved' }, 'mark_verified')} className="border border-slate-200 bg-white text-slate-700">Verify</AdminActionButton>
-                    <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'pending' }, 'mark_unverified')} className="border border-slate-200 bg-white text-slate-700">Unverify</AdminActionButton>
-                    <select
-                      value={targetUser.role}
-                      onChange={(event) => updateUser(targetUser, { role: event.target.value }, 'change_role')}
-                      disabled={updatingUserId === targetUser.id}
-                      className="sm:col-span-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"
-                    >
-                      {publicSignupRoles.map((roleName) => (
-                        <option key={roleName} value={roleName}>{formatRole(roleName)}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
+        <AdminUserSection
+          title="Pending Requests"
+          subtitle="Fresh teacher, PhD, lab assistant, and institute approvals."
+          users={pendingUsers}
+          emptyText="No pending requests right now."
+          updatingUserId={updatingUserId}
+          updateUser={updateUser}
+        />
+        <div className="mt-6 grid gap-6 xl:grid-cols-3">
+          <AdminUserSection
+            title="Approved Users"
+            subtitle="Already approved users."
+            users={approvedUsers}
+            emptyText="No approved users in this filter."
+            updatingUserId={updatingUserId}
+            updateUser={updateUser}
+            compact
+          />
+          <AdminUserSection
+            title="Suspended Users"
+            subtitle="Suspended accounts that can be restored."
+            users={suspendedUsers}
+            emptyText="No suspended users in this filter."
+            updatingUserId={updatingUserId}
+            updateUser={updateUser}
+            compact
+          />
+          <AdminUserSection
+            title="Rejected Users"
+            subtitle="Rejected requests that can be reviewed again."
+            users={rejectedUsers}
+            emptyText="No rejected users in this filter."
+            updatingUserId={updatingUserId}
+            updateUser={updateUser}
+            compact
+          />
+        </div>
       </Panel>
     </PageShell>
   );
@@ -2790,6 +2839,67 @@ function AdminActionButton({ children, className, disabled, onClick }) {
     >
       {disabled ? 'Updating...' : children}
     </button>
+  );
+}
+
+function AdminUserSection({
+  title,
+  subtitle,
+  users,
+  emptyText,
+  updatingUserId,
+  updateUser,
+  compact = false,
+}) {
+  return (
+    <section className={`rounded-lg border border-slate-200 ${compact ? 'bg-slate-50 p-4' : 'bg-white p-5'}`}>
+      <div className="mb-4">
+        <h3 className="text-lg font-bold text-ink">{title}</h3>
+        <p className="mt-1 text-sm text-slate-600">{subtitle}</p>
+      </div>
+      {!users.length ? (
+        <EmptyState title="No data yet" text={emptyText} />
+      ) : (
+        <div className="space-y-4">
+          {users.map((targetUser) => (
+            <article key={targetUser.id} className="rounded-lg border border-slate-200 bg-white p-4">
+              <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
+                <div>
+                  <h4 className="font-bold text-ink">{targetUser.full_name ?? 'No name'}</h4>
+                  <p className="mt-1 text-sm text-slate-600">{targetUser.email ?? 'No email'}</p>
+                  <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
+                    <span><strong>Role:</strong> {formatRole(targetUser.role)}</span>
+                    <span><strong>Verification:</strong> {targetUser.verification_status ?? 'pending'}</span>
+                    <span><strong>Status:</strong> {deriveVerificationStateLabel(targetUser.verification_status)}</span>
+                    <span><strong>Institute:</strong> {targetUser.institute ?? 'Not available'}</span>
+                    <span><strong>Department:</strong> {targetUser.department ?? 'Not available'}</span>
+                    <span><strong>Mobile:</strong> {targetUser.mobile_number ?? 'Not available'}</span>
+                  </div>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:min-w-72">
+                  <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'approved' }, 'approve_user')} className="bg-emerald-600 text-white">Approve</AdminActionButton>
+                  <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'rejected' }, 'reject_user')} className="bg-rose-600 text-white">Reject</AdminActionButton>
+                  <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'suspended' }, 'suspend_user')} className="bg-amber-600 text-white">Suspend</AdminActionButton>
+                  <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'approved' }, 'restore_user')} className="bg-slate-800 text-white">Restore</AdminActionButton>
+                  <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'approved' }, 'mark_verified')} className="border border-slate-200 bg-white text-slate-700">Verify</AdminActionButton>
+                  <AdminActionButton disabled={updatingUserId === targetUser.id} onClick={() => updateUser(targetUser, { verification_status: 'pending' }, 'mark_unverified')} className="border border-slate-200 bg-white text-slate-700">Unverify</AdminActionButton>
+                  <select
+                    value={targetUser.role}
+                    onChange={(event) => updateUser(targetUser, { role: event.target.value }, 'change_role')}
+                    disabled={updatingUserId === targetUser.id}
+                    className="sm:col-span-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"
+                  >
+                    {publicSignupRoles.map((roleName) => (
+                      <option key={roleName} value={roleName}>{formatRole(roleName)}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
