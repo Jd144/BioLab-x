@@ -2448,9 +2448,14 @@ function TeacherCreateClassForm({ user, reload }) {
     event.preventDefault();
     if (!supabase || !user) return;
     setSaving(true);
+    setMessage('');
     const { error } = await supabase.from('classes').insert({ teacher_id: user.id, ...form });
     setSaving(false);
-    setMessage(error ? 'Could not create class.' : 'Class created.');
+    setMessage(
+      error
+        ? `Could not create class: ${error.message}`
+        : 'Class created.',
+    );
     if (!error) {
       setForm({ name: '', course: '', batch_year: '', department: '', subject_name: '', institute: '', description: '' });
       reload();

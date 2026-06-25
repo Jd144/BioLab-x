@@ -665,6 +665,22 @@ create policy "Authenticated users can read lab members"
 create policy "Authenticated users can read classes"
   on public.classes for select to authenticated using (true);
 
+create policy "Teachers can create their own classes"
+  on public.classes for insert
+  to authenticated
+  with check (auth.uid() = teacher_id);
+
+create policy "Teachers can update their own classes"
+  on public.classes for update
+  to authenticated
+  using (auth.uid() = teacher_id)
+  with check (auth.uid() = teacher_id);
+
+create policy "Teachers can delete their own classes"
+  on public.classes for delete
+  to authenticated
+  using (auth.uid() = teacher_id);
+
 create policy "Authenticated users can read class members"
   on public.class_members for select to authenticated using (true);
 
