@@ -641,7 +641,7 @@ function AppShell() {
       }
 
       if (isAdminEmail(currentUser.email) && supabase) {
-        await supabase.from('profiles').upsert({
+        await upsertProfileCompat({
           id: currentUser.id,
           user_id: currentUser.id,
           full_name: resolvedProfile.full_name,
@@ -988,6 +988,31 @@ async function persistVerificationRequestStatus(targetUser, nextStatus, roleOver
 
   const { error } = await supabase.from('verification_requests').insert(payload);
   return { error };
+}
+
+function removeProfileCompatibilityFields(profilePayload) {
+  const { verification_status, status, ...rest } = profilePayload;
+  return rest;
+}
+
+async function upsertProfileCompat(profilePayload) {
+  if (!supabase) {
+    return { error: new Error('Supabase is not configured.') };
+  }
+
+  const result = await supabase.from('profiles').upsert(profilePayload);
+  if (!result.error) {
+    return result;
+  }
+
+  if (
+    result.error.message?.includes('verification_status')
+    || result.error.message?.includes('status')
+  ) {
+    return supabase.from('profiles').upsert(removeProfileCompatibilityFields(profilePayload));
+  }
+
+  return result;
 }
 
 function isAdminEmail(email) {
@@ -1470,10 +1495,10 @@ function SignupPage({ onNavigate, onAuthSuccess }) {
         ...profilePayload,
         verification_status: verificationStatus,
       };
-      const { error: profileError } = await supabase.from('profiles').upsert(fullProfilePayload);
+      const { error: profileError } = await upsertProfileCompat(fullProfilePayload);
 
       if (profileError) {
-        await supabase.from('profiles').upsert({
+        await upsertProfileCompat({
           id: data.user.id,
           full_name: formData.full_name,
           role,
