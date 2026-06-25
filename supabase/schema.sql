@@ -11,6 +11,9 @@ create table public.profiles (
   email text,
   mobile_number text,
   role public.user_role not null default 'student',
+  verification_status text not null default 'pending',
+  is_verified boolean not null default false,
+  status text not null default 'active',
   institution text,
   institute text,
   department text,
@@ -56,6 +59,48 @@ create table public.institutes (
   updated_at timestamptz not null default now()
 );
 
+create table public.verification_requests (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  role_requested public.user_role not null,
+  status text not null default 'pending',
+  details jsonb not null default '{}'::jsonb,
+  document_url text,
+  reviewed_by uuid references public.profiles(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.admin_actions (
+  id uuid primary key default gen_random_uuid(),
+  admin_id uuid references public.profiles(id) on delete set null,
+  target_user_id uuid references public.profiles(id) on delete set null,
+  action_type text not null,
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table public.platform_announcements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  body text not null,
+  is_active boolean not null default true,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.user_status_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  changed_by uuid references public.profiles(id) on delete set null,
+  status text,
+  verification_status text,
+  note text,
+  created_at timestamptz not null default now()
+);
+
 create table public.departments (
   id uuid primary key default gen_random_uuid(),
   institute_id uuid references public.institutes(id) on delete cascade,
@@ -94,6 +139,9 @@ create table public.classes (
   name text not null,
   course text,
   batch_year text,
+  department text,
+  subject_name text,
+  institute text,
   description text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -330,6 +378,10 @@ create table public.conferences (
 );
 
 alter table public.profiles enable row level security;
+alter table public.verification_requests enable row level security;
+alter table public.admin_actions enable row level security;
+alter table public.platform_announcements enable row level security;
+alter table public.user_status_logs enable row level security;
 alter table public.institutes enable row level security;
 alter table public.departments enable row level security;
 alter table public.labs enable row level security;
@@ -356,21 +408,68 @@ alter table public.research_profiles enable row level security;
 alter table public.publications enable row level security;
 alter table public.conferences enable row level security;
 
-create policy "Profiles are readable by authenticated users"
+create policy "Users and admin can read profiles"
   on public.profiles for select
   to authenticated
-  using (true);
+  using (auth.uid() = id or auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
 
-create policy "Users can update their own profile"
+create policy "Users and admin can update profiles"
   on public.profiles for update
   to authenticated
-  using (auth.uid() = id)
-  with check (auth.uid() = id);
+  using (auth.uid() = id or auth.jwt()->>'email' = 'charanjaydeep712@gmail.com')
+  with check (auth.uid() = id or auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
 
 create policy "Users can insert their own profile"
   on public.profiles for insert
   to authenticated
   with check (auth.uid() = id);
+
+create policy "Users can create verification requests"
+  on public.verification_requests for insert
+  to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "Users and admin can read verification requests"
+  on public.verification_requests for select
+  to authenticated
+  using (auth.uid() = user_id or auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+
+create policy "Admin can manage verification requests"
+  on public.verification_requests for update
+  to authenticated
+  using (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com')
+  with check (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+
+create policy "Admin can create admin actions"
+  on public.admin_actions for insert
+  to authenticated
+  with check (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+
+create policy "Admin can read admin actions"
+  on public.admin_actions for select
+  to authenticated
+  using (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+
+create policy "Authenticated users can read active announcements"
+  on public.platform_announcements for select
+  to authenticated
+  using (is_active = true or auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+
+create policy "Admin can manage announcements"
+  on public.platform_announcements for all
+  to authenticated
+  using (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com')
+  with check (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+
+create policy "Admin can create user status logs"
+  on public.user_status_logs for insert
+  to authenticated
+  with check (auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
+
+create policy "Users and admin can read user status logs"
+  on public.user_status_logs for select
+  to authenticated
+  using (auth.uid() = user_id or auth.jwt()->>'email' = 'charanjaydeep712@gmail.com');
 
 create or replace function public.handle_new_user()
 returns trigger
@@ -386,6 +485,9 @@ begin
     email,
     mobile_number,
     role,
+    verification_status,
+    is_verified,
+    status,
     course,
     batch_year,
     entry_number,
@@ -408,6 +510,9 @@ begin
     new.email,
     new.raw_user_meta_data->>'mobile_number',
     coalesce(new.raw_user_meta_data->>'role', 'student')::public.user_role,
+    case when new.email = 'charanjaydeep712@gmail.com' or coalesce(new.raw_user_meta_data->>'role', 'student') = 'student' then 'approved' else 'pending' end,
+    (new.email = 'charanjaydeep712@gmail.com' or coalesce(new.raw_user_meta_data->>'role', 'student') = 'student'),
+    'active',
     new.raw_user_meta_data->>'course',
     new.raw_user_meta_data->>'batch_year',
     new.raw_user_meta_data->>'entry_number',

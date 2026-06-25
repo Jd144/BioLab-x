@@ -56,6 +56,7 @@ const pages = [
 ];
 
 const dashboardRoles = ['student', 'teacher', 'lab_assistant', 'phd', 'institute', 'admin'];
+const ADMIN_EMAIL = 'charanjaydeep712@gmail.com';
 
 const routePaths = {
   home: '/',
@@ -88,6 +89,8 @@ const routeLabels = {
 };
 
 const roleOptions = ['student', 'teacher', 'lab_assistant', 'phd', 'institute', 'admin'];
+const publicSignupRoles = ['student', 'teacher', 'lab_assistant', 'phd', 'institute'];
+const verificationRequiredRoles = ['teacher', 'lab_assistant', 'phd', 'institute'];
 
 const roleLabels = {
   student: 'Student',
@@ -547,11 +550,6 @@ const roleExplainers = [
     icon: Landmark,
     description: 'Organize departments, labs, lab heads, members, research areas, and activity summaries.',
   },
-  {
-    role: 'Admin',
-    icon: ShieldIcon,
-    description: 'Support controlled platform management, user oversight, and institutional operations.',
-  },
 ];
 
 function GaugeIcon(props) {
@@ -613,17 +611,40 @@ function AppShell() {
       const fallbackProfile = buildProfileFromUser(currentUser);
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, user_id, full_name, email, mobile_number, role, course, batch_year, entry_number, roll_number, department, institute, institution, designation, subjects_taught, lab_name, teacher_name, instructor_name, supervisor_name, pi_name, research_area, current_project, publications_count, conferences_count, responsibility, experience, phd_year, number_of_labs, coordinator_name, official_email, organization, attendance_status, class_name, batch_name, bio')
+        .select('id, user_id, full_name, email, mobile_number, role, verification_status, is_verified, status, course, batch_year, entry_number, roll_number, department, institute, institution, designation, subjects_taught, lab_name, teacher_name, instructor_name, supervisor_name, pi_name, research_area, current_project, publications_count, conferences_count, responsibility, experience, phd_year, number_of_labs, coordinator_name, official_email, organization, attendance_status, class_name, batch_name, bio')
         .eq('id', currentUser.id)
         .single();
 
       const nextProfile = error ? fallbackProfile : { ...fallbackProfile, ...data };
+      const resolvedProfile = isAdminEmail(currentUser.email)
+        ? {
+            ...nextProfile,
+            role: 'admin',
+            email: currentUser.email,
+            verification_status: 'approved',
+            is_verified: true,
+            status: 'active',
+          }
+        : nextProfile;
 
       if (isMounted) {
-        setProfile(nextProfile);
+        setProfile(resolvedProfile);
       }
 
-      return nextProfile;
+      if (isAdminEmail(currentUser.email) && supabase) {
+        await supabase.from('profiles').upsert({
+          id: currentUser.id,
+          user_id: currentUser.id,
+          full_name: resolvedProfile.full_name,
+          email: currentUser.email,
+          role: 'admin',
+          verification_status: 'approved',
+          is_verified: true,
+          status: 'active',
+        });
+      }
+
+      return resolvedProfile;
     };
 
     supabase.auth.getSession().then(async ({ data }) => {
@@ -669,7 +690,9 @@ function AppShell() {
       setSession(nextSession);
     }
 
-    const metadataRole = nextSession?.user?.user_metadata?.role;
+    const metadataRole = isAdminEmail(nextSession?.user?.email)
+      ? 'admin'
+      : nextSession?.user?.user_metadata?.role;
     const nextRole = normalizeRole(explicitRole ?? profile?.role ?? metadataRole);
     const targetPath = location.state?.from ?? getDashboardPathForRole(nextRole) ?? redirectAfterAuth;
 
@@ -736,7 +759,7 @@ function AppShell() {
             path="/student"
             element={
               <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="student">
-                <RoleDashboard role="student" profile={profile} />
+                <RoleDashboard role="student" user={user} profile={profile} />
               </ProtectedRoute>
             }
           />
@@ -752,7 +775,7 @@ function AppShell() {
             path="/teacher"
             element={
               <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="teacher">
-                <RoleDashboard role="teacher" profile={profile} />
+                <RoleDashboard role="teacher" user={user} profile={profile} />
               </ProtectedRoute>
             }
           />
@@ -760,7 +783,7 @@ function AppShell() {
             path="/lab-assistant"
             element={
               <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="lab_assistant">
-                <RoleDashboard role="lab_assistant" profile={profile} />
+                <RoleDashboard role="lab_assistant" user={user} profile={profile} />
               </ProtectedRoute>
             }
           />
@@ -768,7 +791,7 @@ function AppShell() {
             path="/phd"
             element={
               <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="phd">
-                <RoleDashboard role="phd" profile={profile} />
+                <RoleDashboard role="phd" user={user} profile={profile} />
               </ProtectedRoute>
             }
           />
@@ -776,7 +799,7 @@ function AppShell() {
             path="/institute"
             element={
               <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="institute">
-                <RoleDashboard role="institute" profile={profile} />
+                <RoleDashboard role="institute" user={user} profile={profile} />
               </ProtectedRoute>
             }
           />
@@ -784,7 +807,7 @@ function AppShell() {
             path="/admin"
             element={
               <ProtectedRoute isLoading={authLoading} user={user} profile={profile} allowedRole="admin">
-                <RoleDashboard role="admin" profile={profile} />
+                <RoleDashboard role="admin" user={user} profile={profile} />
               </ProtectedRoute>
             }
           />
@@ -816,6 +839,10 @@ function getDashboardPathForRole(role) {
   return routePaths[normalizedRole] ?? routePaths.student;
 }
 
+function isAdminEmail(email) {
+  return email?.toLowerCase() === ADMIN_EMAIL;
+}
+
 function normalizeRole(role) {
   return roleOptions.includes(role) ? role : 'student';
 }
@@ -826,7 +853,7 @@ function buildProfileFromUser(user) {
   return {
     id: user.id,
     full_name: metadata.full_name ?? user.email?.split('@')[0] ?? 'BioLabX User',
-    role: normalizeRole(metadata.role),
+    role: isAdminEmail(user.email) ? 'admin' : normalizeRole(metadata.role),
     institution: metadata.institution ?? '',
     institute: metadata.institute ?? metadata.institution ?? '',
     department: metadata.department ?? '',
@@ -855,6 +882,9 @@ function buildProfileFromUser(user) {
     official_email: metadata.official_email ?? '',
     organization: metadata.organization ?? '',
     bio: metadata.bio ?? '',
+    verification_status: isAdminEmail(user.email) || metadata.role === 'student' ? 'approved' : 'pending',
+    is_verified: isAdminEmail(user.email) || metadata.role === 'student',
+    status: 'active',
     attendance_status: metadata.attendance_status ?? '',
     class_name: metadata.class_name ?? '',
     batch_name: metadata.batch_name ?? '',
@@ -1071,7 +1101,7 @@ function Navbar({ activePage, isMenuOpen, user, profile, onSignOut, onMenuToggle
 
 function ProtectedRoute({ isLoading, user, profile, allowedRole, children }) {
   const location = useLocation();
-  const userRole = normalizeRole(profile?.role ?? user?.user_metadata?.role);
+  const userRole = isAdminEmail(user?.email) ? 'admin' : normalizeRole(profile?.role ?? user?.user_metadata?.role);
 
   if (isLoading) {
     return (
@@ -1087,11 +1117,49 @@ function ProtectedRoute({ isLoading, user, profile, allowedRole, children }) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
+  if (allowedRole === 'admin' && !isAdminEmail(user.email)) {
+    return <Navigate to={getDashboardPathForRole(userRole)} replace />;
+  }
+
   if (allowedRole && userRole !== allowedRole) {
     return <Navigate to={getDashboardPathForRole(userRole)} replace />;
   }
 
+  if (
+    verificationRequiredRoles.includes(userRole)
+    && profile?.verification_status !== 'approved'
+    && !profile?.is_verified
+  ) {
+    return <VerificationPendingPage role={userRole} profile={profile} />;
+  }
+
   return children;
+}
+
+function VerificationPendingPage({ role, profile }) {
+  return (
+    <PageShell>
+      <section className="rounded-lg border border-amber-200 bg-amber-50 p-6 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
+              Admin verification required
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-ink">
+              Your {formatRole(role).toLowerCase()} account is pending admin verification
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-amber-900">
+              BioLabX has saved your profile. Full dashboard access unlocks after an admin approves
+              your verification request.
+            </p>
+          </div>
+          <span className="rounded-full bg-white px-4 py-2 text-sm font-bold text-amber-800">
+            {profile?.verification_status ?? 'pending'}
+          </span>
+        </div>
+      </section>
+    </PageShell>
+  );
 }
 
 function LoginPage({ onNavigate, onAuthSuccess }) {
@@ -1232,6 +1300,7 @@ function SignupPage({ onNavigate, onAuthSuccess }) {
     setStatus({ type: 'idle', text: '' });
 
     const profilePayload = buildSignupProfilePayload(formData);
+    const verificationStatus = role === 'student' ? 'approved' : 'pending';
     const { data, error } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
@@ -1251,6 +1320,9 @@ function SignupPage({ onNavigate, onAuthSuccess }) {
         id: data.user.id,
         user_id: data.user.id,
         ...profilePayload,
+        verification_status: verificationStatus,
+        is_verified: role === 'student',
+        status: 'active',
       };
       const { error: profileError } = await supabase.from('profiles').upsert(fullProfilePayload);
 
@@ -1259,6 +1331,18 @@ function SignupPage({ onNavigate, onAuthSuccess }) {
           id: data.user.id,
           full_name: formData.full_name,
           role,
+          verification_status: verificationStatus,
+          is_verified: role === 'student',
+          status: 'active',
+        });
+      }
+
+      if (role !== 'student') {
+        await supabase.from('verification_requests').insert({
+          user_id: data.user.id,
+          role_requested: role,
+          status: 'pending',
+          details: profilePayload,
         });
       }
     }
@@ -1295,7 +1379,7 @@ function SignupPage({ onNavigate, onAuthSuccess }) {
               label="Select Role"
               value={role}
               onChange={(value) => updateField('role', value)}
-              options={roleOptions.map((option) => ({ value: option, label: formatRole(option) }))}
+              options={publicSignupRoles.map((option) => ({ value: option, label: formatRole(option) }))}
             />
           </>
         )}
@@ -1970,135 +2054,621 @@ function buildSignupProfilePayload(formData) {
   return profilePayload;
 }
 
-function RoleDashboard({ role, profile }) {
+function RoleDashboard({ role, user, profile }) {
+  if (role === 'admin') {
+    return <AdminDashboard user={user} profile={profile} />;
+  }
+
+  return <LiveRoleDashboard role={role} user={user} profile={profile} />;
+}
+
+function LiveRoleDashboard({ role, user, profile }) {
   const config = roleDashboardConfig[role] ?? roleDashboardConfig.student;
   const Icon = config.icon;
   const navigate = useNavigate();
+  const [data, setData] = useState({});
+  const [status, setStatus] = useState({ loading: true, text: '' });
+
+  const loadData = async () => {
+    if (!supabase || !user) {
+      setData({});
+      setStatus({ loading: false, text: 'Supabase is not configured yet.' });
+      return;
+    }
+
+    setStatus({ loading: true, text: '' });
+    const nextData = {};
+
+    if (role === 'student') {
+      nextData.classes = await fetchRows('class_members', '*, classes(*)', 'student_id', user.id);
+      nextData.joinRequests = await fetchRows('join_requests', '*, classes(*)', 'student_id', user.id);
+      nextData.assignments = await fetchRows('assignments', '*');
+      nextData.quizResults = await fetchRows('quiz_results', '*', 'student_id', user.id);
+      nextData.progress = await fetchRows('experiment_progress', '*', 'student_id', user.id);
+      nextData.certificates = await fetchRows('certificates', '*', 'student_id', user.id);
+    }
+
+    if (role === 'teacher') {
+      nextData.classes = await fetchRows('classes', '*', 'teacher_id', user.id);
+      nextData.joinRequests = await fetchRows('join_requests', '*', 'teacher_id', user.id);
+      nextData.assignments = await fetchRows('assignments', '*', 'teacher_id', user.id);
+      nextData.notices = await fetchRows('notices', '*', 'author_id', user.id);
+      nextData.materials = await fetchRows('study_materials', '*', 'teacher_id', user.id);
+      nextData.attendance = await fetchRows('attendance_sessions', '*', 'teacher_id', user.id);
+    }
+
+    if (role === 'phd') {
+      nextData.researchProfiles = await fetchRows('research_profiles', '*', 'profile_id', user.id);
+      nextData.publications = await fetchRows('publications', '*');
+      nextData.conferences = await fetchRows('conferences', '*');
+      nextData.labMemberships = await fetchRows('lab_members', '*, labs(*)', 'profile_id', user.id);
+    }
+
+    if (role === 'lab_assistant') {
+      nextData.labMemberships = await fetchRows('lab_members', '*, labs(*)', 'profile_id', user.id);
+      nextData.inventory = await fetchRows('inventory_items', '*');
+      nextData.inventoryLogs = await fetchRows('inventory_logs', '*');
+      nextData.maintenance = await fetchRows('equipment_maintenance', '*');
+    }
+
+    if (role === 'institute') {
+      nextData.institutes = await fetchRows('institutes', '*', 'created_by', user.id);
+      nextData.departments = await fetchRows('departments', '*');
+      nextData.labs = await fetchRows('labs', '*');
+      nextData.members = await fetchRows('lab_members', '*');
+      nextData.classes = await fetchRows('classes', '*');
+    }
+
+    setData(nextData);
+    setStatus({ loading: false, text: '' });
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [role, user?.id]);
 
   return (
     <PageShell>
-      <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-lab-50 text-lab-700">
-              <Icon size={24} />
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-lab-700">
-                Role-based access
-              </p>
-              <h2 className="mt-2 text-2xl font-bold text-ink">{config.title}</h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{config.subtitle}</p>
-            </div>
-          </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
-            <p className="font-bold text-ink">{profile?.full_name ?? 'BioLabX User'}</p>
-            <p className="mt-1 font-semibold text-slate-500">{formatRole(profile?.role ?? role)}</p>
-          </div>
-        </div>
-      </section>
+      <DashboardHeader icon={Icon} title={config.title} subtitle={roleDashboardSubtitle(role)} profile={profile} />
+      {status.loading && <LoadingState />}
+      {status.text && <StatusNotice type="warning" text={status.text} />}
 
-      {role === 'student' && (
-        <section className="rounded-lg border border-lab-100 bg-lab-50 p-5 shadow-sm">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-lab-700">
-                Academic records
-              </p>
-              <h3 className="mt-2 text-xl font-bold text-ink">Certificate History</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                View earned BioLabX virtual laboratory completion certificates.
-              </p>
-            </div>
-            <button
-              onClick={() => navigate('/student/certificates')}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-ink px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-700"
-            >
-              <FileCheck2 size={18} />
-              View Certificates
-            </button>
-          </div>
-        </section>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-3">
-        {config.cards.map((card) => (
-          <article key={card.label} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm font-bold text-slate-500">{card.label}</p>
-            <p className="mt-3 text-2xl font-bold text-ink">{card.value}</p>
-            <p className="mt-3 text-sm leading-6 text-slate-600">{card.detail}</p>
-          </article>
-        ))}
-      </div>
-
-      <RoleDashboardWorkspace role={role} profile={profile} />
-
-      <Panel title="Profile Data" subtitle="Live role data loaded from Supabase profiles when configured.">
-        <div className="grid gap-3 text-sm md:grid-cols-2">
-          <ProfileFact label="Full name" value={profile?.full_name ?? 'Not set'} />
-          <ProfileFact label="Role" value={formatRole(profile?.role ?? role)} />
-          <ProfileFact label="Institution" value={profile?.institution || 'Not set'} />
-          <ProfileFact label="Department" value={profile?.department || 'Not set'} />
+      <Panel title="Profile Summary" subtitle="Live Supabase profile record.">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {profileFieldsForRole(role).map(([label, field, fallback]) => (
+            <ProfileFact key={label} label={label} value={profileDisplayValue(profile, field, fallback)} />
+          ))}
         </div>
       </Panel>
+
+      {role === 'student' && <StudentLiveWorkspace data={data} onCertificates={() => navigate('/student/certificates')} />}
+      {role === 'teacher' && <TeacherLiveWorkspace user={user} data={data} reload={loadData} />}
+      {role === 'phd' && <ResearchLiveWorkspace data={data} />}
+      {role === 'lab_assistant' && <LabAssistantLiveWorkspace user={user} data={data} reload={loadData} />}
+      {role === 'institute' && <InstituteLiveWorkspace user={user} data={data} reload={loadData} />}
     </PageShell>
   );
 }
 
-function RoleDashboardWorkspace({ role, profile }) {
-  const workspace = roleDashboardWorkspaces[role] ?? roleDashboardWorkspaces.student;
+function DashboardHeader({ icon: Icon, title, subtitle, profile }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-lab-50 text-lab-700">
+            <Icon size={24} />
+          </div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-lab-700">Live dashboard</p>
+            <h2 className="mt-2 text-2xl font-bold text-ink">{title}</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{subtitle}</p>
+          </div>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+          <p className="font-bold text-ink">{profile?.full_name ?? 'BioLabX User'}</p>
+          <p className="mt-1 font-semibold text-slate-500">{formatRole(profile?.role)}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
 
+function roleDashboardSubtitle(role) {
+  const subtitles = {
+    student: 'Only your own classes, requests, assignments, quiz attempts, progress, and certificates are shown.',
+    teacher: 'Only your classes, requests, assignments, notices, materials, and attendance sessions are shown.',
+    phd: 'Only approved research profile and lab membership records from Supabase are shown.',
+    lab_assistant: 'Only live lab, inventory, stock log, and maintenance records are shown.',
+    institute: 'Only live institute, department, lab, member, and class records are shown.',
+  };
+  return subtitles[role] ?? 'Live Supabase records only.';
+}
+
+function profileFieldsForRole(role) {
+  const common = [
+    ['Full name', 'full_name', 'Not set'],
+    ['Email', 'email', 'Not set'],
+    ['Mobile number', 'mobile_number', 'Not set'],
+    ['Status', 'verification_status', 'pending'],
+  ];
+  const fields = {
+    student: [['Course', 'course', 'Not set'], ['Batch year', 'batch_year', 'Not set'], ['Entry / roll number', 'entry_number', 'Not set'], ['Institute', 'institute', 'Not set']],
+    teacher: [['Designation', 'designation', 'Not set'], ['Department', 'department', 'Not set'], ['Institute', 'institute', 'Not set'], ['Lab name', 'lab_name', 'Not set']],
+    phd: [['Supervisor / PI', 'supervisor_name', 'Not assigned'], ['Research area', 'research_area', 'Not set'], ['Current project', 'current_project', 'Not set'], ['Lab name', 'lab_name', 'Not set']],
+    lab_assistant: [['Department', 'department', 'Not set'], ['Institute', 'institute', 'Not set'], ['Lab name', 'lab_name', 'Not assigned'], ['Responsibility', 'responsibility', 'Not set']],
+    institute: [['Institute', 'institute', 'Not set'], ['Department / school', 'department', 'Not set'], ['Official email', 'official_email', 'Not set'], ['Coordinator', 'coordinator_name', 'Not set']],
+    admin: [['Email', 'email', ADMIN_EMAIL], ['Role', 'role', 'admin'], ['Status', 'status', 'active'], ['Verification', 'verification_status', 'approved']],
+  };
+  return [...common.slice(0, role === 'admin' ? 1 : common.length), ...(fields[role] ?? [])];
+}
+
+async function fetchRows(table, select = '*', column, value) {
+  if (!supabase) {
+    return [];
+  }
+
+  let query = supabase.from(table).select(select);
+  if (column && value) {
+    query = query.eq(column, value);
+  }
+  const { data, error } = await query;
+  return error ? [] : data ?? [];
+}
+
+function LoadingState() {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-600">
+      Loading live Supabase data...
+    </div>
+  );
+}
+
+function EmptyState({ title = 'No data yet', text = 'Records will appear here after they are created in Supabase.' }) {
+  return (
+    <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+      <p className="font-bold text-ink">{title}</p>
+      <p className="mt-1 leading-6">{text}</p>
+    </div>
+  );
+}
+
+function LiveCountGrid({ items }) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {items.map(([label, rows]) => (
+        <MetricCard key={label} icon={BarChart3} label={label} value={rows?.length ? `${rows.length}` : 'No data yet'} />
+      ))}
+    </div>
+  );
+}
+
+function StudentLiveWorkspace({ data, onCertificates }) {
   return (
     <>
-      <Panel title="Profile Summary" subtitle="Role-aware live profile details from signup and Supabase profiles.">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {workspace.summary.map(([label, field, fallback]) => (
-            <ProfileFact key={label} label={label} value={profileDisplayValue(profile, field, fallback)} />
-          ))}
-        </div>
-        <button className="mt-4 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700">
-          <UserPlus size={17} />
-          Edit profile
-        </button>
+      <LiveCountGrid items={[
+        ['Joined classes', data.classes],
+        ['Pending requests', data.joinRequests],
+        ['Quiz attempts', data.quizResults],
+        ['Certificates', data.certificates],
+      ]} />
+      <Panel title="Joined Classes" subtitle="Classes approved through teacher/class membership.">
+        <RecordList rows={data.classes} empty="No classes joined yet" render={(row) => row.classes?.name ?? row.class_id} />
       </Panel>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {workspace.metrics.map(([label, value]) => (
-          <MetricCard
-            key={label}
-            icon={BarChart3}
-            label={label}
-            value={dashboardMetricValue(profile, value)}
-          />
-        ))}
-      </div>
-
-      <Panel title="Available Actions" subtitle="MVP-ready actions with dummy data and production-oriented structure.">
+      <Panel title="Assignments and Learning" subtitle="Assigned experiments, progress, scores, and certificates.">
         <div className="grid gap-4 md:grid-cols-2">
-          {workspace.cards.map(([title, description]) => (
-            <article key={title} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <h3 className="font-bold text-ink">{title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
-            </article>
-          ))}
-        </div>
-      </Panel>
-
-      <Panel title={workspace.tableTitle} subtitle="Clean operational view prepared for live database records.">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[620px] border-collapse text-left">
-            <tbody>
-              {workspace.tableRows.map(([label, value]) => (
-                <tr key={label} className="border-b border-slate-100 last:border-0">
-                  <th className="py-3 pr-4 text-sm font-bold text-ink">{label}</th>
-                  <td className="py-3 text-sm leading-6 text-slate-600">{value}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <RecordList rows={data.assignments} empty="No assignments yet" render={(row) => row.title} />
+          <RecordList rows={data.quizResults} empty="No quiz attempts yet" render={(row) => `Score ${row.score}/${row.total_marks}`} />
+          <RecordList rows={data.progress} empty="No experiment progress yet" render={(row) => `${row.score ?? 'Progress'} ${row.time_spent_minutes ?? 0} min`} />
+          <div>
+            <RecordList rows={data.certificates} empty="No certificates yet" render={(row) => row.experiment_name} />
+            <button onClick={onCertificates} className="mt-3 rounded-md bg-ink px-4 py-2 text-sm font-bold text-white">
+              See certificates
+            </button>
+          </div>
         </div>
       </Panel>
     </>
+  );
+}
+
+function TeacherLiveWorkspace({ user, data, reload }) {
+  return (
+    <>
+      <LiveCountGrid items={[
+        ['Classes created', data.classes],
+        ['Student requests', data.joinRequests],
+        ['Assignments', data.assignments],
+        ['Attendance sessions', data.attendance],
+      ]} />
+      <TeacherCreateClassForm user={user} reload={reload} />
+      <Panel title="Class Management" subtitle="Only classes and related records owned by this teacher.">
+        <div className="grid gap-4 md:grid-cols-2">
+          <RecordList rows={data.classes} empty="No classes created yet" render={(row) => `${row.name} (${row.course ?? 'No course'})`} />
+          <TeacherRequestList rows={data.joinRequests} reload={reload} />
+          <RecordList rows={data.assignments} empty="No assignments yet" render={(row) => row.title} />
+          <RecordList rows={data.notices} empty="No notices yet" render={(row) => row.title} />
+          <RecordList rows={data.materials} empty="No study materials yet" render={(row) => row.title} />
+          <RecordList rows={data.attendance} empty="No attendance sessions yet" render={(row) => row.topic ?? row.session_date} />
+        </div>
+      </Panel>
+    </>
+  );
+}
+
+function TeacherCreateClassForm({ user, reload }) {
+  const [form, setForm] = useState({ name: '', course: '', batch_year: '', department: '', subject_name: '', institute: '', description: '' });
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!supabase || !user) return;
+    setSaving(true);
+    const { error } = await supabase.from('classes').insert({ teacher_id: user.id, ...form });
+    setSaving(false);
+    setMessage(error ? 'Could not create class.' : 'Class created.');
+    if (!error) {
+      setForm({ name: '', course: '', batch_year: '', department: '', subject_name: '', institute: '', description: '' });
+      reload();
+    }
+  };
+
+  return (
+    <Panel title="Create Classroom / Lab Group" subtitle="Functional Supabase insert for teacher-owned classes.">
+      <form onSubmit={submit} className="grid gap-3 md:grid-cols-2">
+        {[
+          ['name', 'Class name'],
+          ['course', 'Course'],
+          ['batch_year', 'Batch year'],
+          ['department', 'Department'],
+          ['subject_name', 'Subject / lab name'],
+          ['institute', 'Institute'],
+        ].map(([field, label]) => (
+          <TextField key={field} label={label} value={form[field]} onChange={(value) => setForm((current) => ({ ...current, [field]: value }))} required={field === 'name'} />
+        ))}
+        <div className="md:col-span-2">
+          <TextAreaField label="Description" value={form.description} onChange={(value) => setForm((current) => ({ ...current, description: value }))} />
+        </div>
+        <button disabled={saving} className="rounded-md bg-lab-700 px-4 py-3 text-sm font-bold text-white disabled:bg-slate-300">
+          {saving ? 'Saving...' : 'Create class'}
+        </button>
+        {message && <p className="self-center text-sm font-semibold text-slate-600">{message}</p>}
+      </form>
+    </Panel>
+  );
+}
+
+function TeacherRequestList({ rows = [], reload }) {
+  const updateRequest = async (row, status) => {
+    if (!supabase) return;
+    await supabase.from('join_requests').update({ status }).eq('id', row.id);
+    if (status === 'approved' && row.class_id && row.student_id) {
+      await supabase.from('class_members').upsert({ class_id: row.class_id, student_id: row.student_id, status: 'active' });
+    }
+    reload();
+  };
+
+  if (!rows?.length) {
+    return <EmptyState title="No student requests yet" />;
+  }
+
+  return (
+    <div className="space-y-3">
+      {rows.map((row) => (
+        <div key={row.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+          <p className="text-sm font-bold text-ink">{row.student_id}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{row.status}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={() => updateRequest(row, 'approved')} className="rounded-md bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Approve</button>
+            <button onClick={() => updateRequest(row, 'rejected')} className="rounded-md bg-rose-600 px-3 py-2 text-xs font-bold text-white">Reject</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ResearchLiveWorkspace({ data }) {
+  return (
+    <>
+      <LiveCountGrid items={[
+        ['Research profiles', data.researchProfiles],
+        ['Publications', data.publications],
+        ['Conferences', data.conferences],
+        ['Lab memberships', data.labMemberships],
+      ]} />
+      <Panel title="Research Records" subtitle="Live research profile, publications, conferences, and lab access.">
+        <div className="grid gap-4 md:grid-cols-2">
+          <RecordList rows={data.researchProfiles} empty="No research profile yet" render={(row) => row.current_project ?? row.research_area} />
+          <RecordList rows={data.publications} empty="No publications yet" render={(row) => row.title} />
+          <RecordList rows={data.conferences} empty="No conferences yet" render={(row) => row.title} />
+          <RecordList rows={data.labMemberships} empty="No approved lab access yet" render={(row) => row.labs?.name ?? row.lab_id} />
+        </div>
+      </Panel>
+    </>
+  );
+}
+
+function LabAssistantLiveWorkspace({ user, data, reload }) {
+  return (
+    <>
+      <LiveCountGrid items={[
+        ['Lab memberships', data.labMemberships],
+        ['Inventory items', data.inventory],
+        ['Stock logs', data.inventoryLogs],
+        ['Maintenance records', data.maintenance],
+      ]} />
+      <InventoryItemForm user={user} reload={reload} />
+      <Panel title="Lab Inventory" subtitle="Live inventory, usage logs, and maintenance records.">
+        <div className="grid gap-4 md:grid-cols-2">
+          <RecordList rows={data.inventory} empty="No inventory items yet" render={(row) => `${row.name} - ${row.quantity} ${row.unit}`} />
+          <RecordList rows={data.inventoryLogs} empty="No inventory logs yet" render={(row) => `${row.change_type}: ${row.quantity_change}`} />
+          <RecordList rows={data.maintenance} empty="No maintenance records yet" render={(row) => `${row.status} - ${row.scheduled_for}`} />
+          <RecordList rows={data.labMemberships} empty="No lab members visible yet" render={(row) => row.labs?.name ?? row.lab_id} />
+        </div>
+      </Panel>
+    </>
+  );
+}
+
+function InventoryItemForm({ user, reload }) {
+  const [form, setForm] = useState({ name: '', category: '', quantity: '', unit: '', reorder_level: '', location: '', expires_at: '' });
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!supabase || !user) return;
+    setSaving(true);
+    const { error } = await supabase.from('inventory_items').insert({
+      ...form,
+      quantity: Number(form.quantity || 0),
+      reorder_level: Number(form.reorder_level || 0),
+    });
+    setSaving(false);
+    setMessage(error ? 'Could not add inventory item.' : 'Inventory item added.');
+    if (!error) {
+      setForm({ name: '', category: '', quantity: '', unit: '', reorder_level: '', location: '', expires_at: '' });
+      reload();
+    }
+  };
+
+  return (
+    <Panel title="Add Inventory Item" subtitle="Functional Supabase insert for authorized lab inventory records.">
+      <form onSubmit={submit} className="grid gap-3 md:grid-cols-2">
+        {[
+          ['name', 'Item name'],
+          ['category', 'Category'],
+          ['quantity', 'Quantity'],
+          ['unit', 'Unit'],
+          ['reorder_level', 'Low stock level'],
+          ['location', 'Location'],
+          ['expires_at', 'Expiry date'],
+        ].map(([field, label]) => (
+          <TextField key={field} label={label} type={field === 'expires_at' ? 'date' : 'text'} value={form[field]} onChange={(value) => setForm((current) => ({ ...current, [field]: value }))} required={['name', 'category', 'unit'].includes(field)} />
+        ))}
+        <button disabled={saving} className="rounded-md bg-lab-700 px-4 py-3 text-sm font-bold text-white disabled:bg-slate-300">
+          {saving ? 'Saving...' : 'Add item'}
+        </button>
+        {message && <p className="self-center text-sm font-semibold text-slate-600">{message}</p>}
+      </form>
+    </Panel>
+  );
+}
+
+function InstituteLiveWorkspace({ user, data, reload }) {
+  return (
+    <>
+      <LiveCountGrid items={[
+        ['Institutes', data.institutes],
+        ['Departments', data.departments],
+        ['Labs', data.labs],
+        ['Classes', data.classes],
+      ]} />
+      <InstituteCreateForms user={user} reload={reload} />
+      <Panel title="Institute Directory" subtitle="Live institute, department, lab, member, and class records.">
+        <div className="grid gap-4 md:grid-cols-2">
+          <RecordList rows={data.institutes} empty="No institute profile yet" render={(row) => row.name} />
+          <RecordList rows={data.departments} empty="No departments yet" render={(row) => row.name} />
+          <RecordList rows={data.labs} empty="No labs yet" render={(row) => row.name} />
+          <RecordList rows={data.members} empty="No lab members yet" render={(row) => `${row.profile_id} - ${row.role_in_lab}`} />
+        </div>
+      </Panel>
+    </>
+  );
+}
+
+function InstituteCreateForms({ user, reload }) {
+  const [form, setForm] = useState({ name: '', official_email: '', coordinator_name: '', description: '' });
+  const [message, setMessage] = useState('');
+
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!supabase || !user) return;
+    const { error } = await supabase.from('institutes').insert({ ...form, created_by: user.id });
+    setMessage(error ? 'Could not add institute.' : 'Institute added.');
+    if (!error) {
+      setForm({ name: '', official_email: '', coordinator_name: '', description: '' });
+      reload();
+    }
+  };
+
+  return (
+    <Panel title="Add Institute Profile" subtitle="Functional Supabase insert for institute directory records.">
+      <form onSubmit={submit} className="grid gap-3 md:grid-cols-2">
+        <TextField label="Institute / University name" value={form.name} onChange={(value) => setForm((current) => ({ ...current, name: value }))} required />
+        <TextField label="Official email" type="email" value={form.official_email} onChange={(value) => setForm((current) => ({ ...current, official_email: value }))} />
+        <TextField label="Coordinator / head" value={form.coordinator_name} onChange={(value) => setForm((current) => ({ ...current, coordinator_name: value }))} />
+        <TextField label="Description" value={form.description} onChange={(value) => setForm((current) => ({ ...current, description: value }))} />
+        <button className="rounded-md bg-lab-700 px-4 py-3 text-sm font-bold text-white">Add institute</button>
+        {message && <p className="self-center text-sm font-semibold text-slate-600">{message}</p>}
+      </form>
+    </Panel>
+  );
+}
+
+function RecordList({ rows = [], empty = 'No data yet', render }) {
+  if (!rows?.length) {
+    return <EmptyState title={empty} />;
+  }
+
+  return (
+    <div className="space-y-3">
+      {rows.map((row) => (
+        <div key={row.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+          <p className="text-sm font-bold text-ink">{render(row)}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{row.created_at ? new Date(row.created_at).toLocaleDateString('en-IN') : 'Live Supabase record'}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AdminDashboard({ user, profile }) {
+  const [users, setUsers] = useState([]);
+  const [filterRole, setFilterRole] = useState('all');
+  const [counts, setCounts] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState('');
+
+  const loadAdminData = async () => {
+    if (!supabase || !isAdminEmail(user?.email)) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const { data: profilesData } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setUsers(profilesData ?? []);
+
+    const countTables = ['classes', 'labs', 'experiments', 'inventory_items', 'certificates', 'verification_requests', 'platform_announcements', 'admin_actions'];
+    const nextCounts = {};
+    await Promise.all(countTables.map(async (table) => {
+      const { count } = await supabase.from(table).select('id', { count: 'exact', head: true });
+      nextCounts[table] = count ?? 0;
+    }));
+    setCounts(nextCounts);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadAdminData();
+  }, [user?.email]);
+
+  const updateUser = async (targetUser, updates, actionType) => {
+    if (!supabase || !isAdminEmail(user?.email)) {
+      return;
+    }
+
+    const { error } = await supabase.from('profiles').update(updates).eq('id', targetUser.id);
+    if (!error) {
+      await supabase.from('admin_actions').insert({
+        admin_id: user.id,
+        target_user_id: targetUser.id,
+        action_type: actionType,
+        details: updates,
+      });
+      await supabase.from('user_status_logs').insert({
+        user_id: targetUser.id,
+        changed_by: user.id,
+        status: updates.status ?? targetUser.status,
+        verification_status: updates.verification_status ?? targetUser.verification_status,
+        note: actionType,
+      });
+    }
+    setMessage(error ? 'Action failed.' : 'User updated.');
+    loadAdminData();
+  };
+
+  const visibleUsers = filterRole === 'all'
+    ? users
+    : users.filter((item) => item.role === filterRole);
+
+  return (
+    <PageShell>
+      <DashboardHeader icon={ShieldIcon} title="Admin Dashboard" subtitle="Hidden admin panel for verification, user control, and platform oversight." profile={profile} />
+      {loading && <LoadingState />}
+      {message && <StatusNotice type="warning" text={message} />}
+
+      <LiveCountGrid items={[
+        ['Total users', users],
+        ['Pending verifications', users.filter((item) => item.verification_status === 'pending')],
+        ['Suspended users', users.filter((item) => item.status === 'suspended')],
+        ['Rejected users', users.filter((item) => item.status === 'rejected')],
+      ]} />
+
+      <Panel title="Platform Control" subtitle="Live counts from Supabase tables.">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {[
+            ['Total classes', counts.classes],
+            ['Total labs', counts.labs],
+            ['Total experiments', counts.experiments],
+            ['Inventory summaries', counts.inventory_items],
+            ['Certificates issued', counts.certificates],
+            ['Verification requests', counts.verification_requests],
+            ['Homepage announcements', counts.platform_announcements],
+            ['Audit logs', counts.admin_actions],
+          ].map(([label, value]) => (
+            <ProfileFact key={label} label={label} value={value ? `${value}` : 'No data yet'} />
+          ))}
+        </div>
+      </Panel>
+
+      <Panel title="User Management" subtitle="Approve, reject, suspend, restore, verify, and change roles.">
+        <div className="mb-4 max-w-xs">
+          <SelectField
+            label="Filter by role"
+            value={filterRole}
+            onChange={setFilterRole}
+            options={[{ value: 'all', label: 'All roles' }, ...publicSignupRoles.map((roleName) => ({ value: roleName, label: formatRole(roleName) }))]}
+          />
+        </div>
+        {visibleUsers.length === 0 ? (
+          <EmptyState title="No data yet" text="No users match this filter." />
+        ) : (
+          <div className="space-y-4">
+            {visibleUsers.map((targetUser) => (
+              <article key={targetUser.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
+                  <div>
+                    <h3 className="font-bold text-ink">{targetUser.full_name ?? 'No name'}</h3>
+                    <p className="mt-1 text-sm text-slate-600">{targetUser.email ?? 'No email'}</p>
+                    <div className="mt-3 grid gap-2 text-sm md:grid-cols-3">
+                      <span><strong>Role:</strong> {formatRole(targetUser.role)}</span>
+                      <span><strong>Verification:</strong> {targetUser.verification_status ?? 'pending'}</span>
+                      <span><strong>Status:</strong> {targetUser.status ?? 'active'}</span>
+                      <span><strong>Institute:</strong> {targetUser.institute ?? 'Not available'}</span>
+                      <span><strong>Department:</strong> {targetUser.department ?? 'Not available'}</span>
+                      <span><strong>Mobile:</strong> {targetUser.mobile_number ?? 'Not available'}</span>
+                    </div>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:min-w-72">
+                    <button onClick={() => updateUser(targetUser, { verification_status: 'approved', is_verified: true, status: 'active' }, 'approve_user')} className="rounded-md bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Approve</button>
+                    <button onClick={() => updateUser(targetUser, { verification_status: 'rejected', is_verified: false, status: 'rejected' }, 'reject_user')} className="rounded-md bg-rose-600 px-3 py-2 text-xs font-bold text-white">Reject</button>
+                    <button onClick={() => updateUser(targetUser, { status: 'suspended', verification_status: 'suspended', is_verified: false }, 'suspend_user')} className="rounded-md bg-amber-600 px-3 py-2 text-xs font-bold text-white">Suspend</button>
+                    <button onClick={() => updateUser(targetUser, { status: 'active' }, 'restore_user')} className="rounded-md bg-slate-800 px-3 py-2 text-xs font-bold text-white">Restore</button>
+                    <button onClick={() => updateUser(targetUser, { is_verified: true, verification_status: 'approved' }, 'mark_verified')} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">Verify</button>
+                    <button onClick={() => updateUser(targetUser, { is_verified: false, verification_status: 'pending' }, 'mark_unverified')} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">Unverify</button>
+                    <select
+                      value={targetUser.role}
+                      onChange={(event) => updateUser(targetUser, { role: event.target.value }, 'change_role')}
+                      className="sm:col-span-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"
+                    >
+                      {publicSignupRoles.map((roleName) => (
+                        <option key={roleName} value={roleName}>{formatRole(roleName)}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </Panel>
+    </PageShell>
   );
 }
 
@@ -2130,9 +2700,46 @@ function StudentCertificatesPage({ user, profile }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const records = loadCertificateRecords(user);
-    setCertificates(records);
-    setSelectedCertificate(records[0] ?? null);
+    const loadCertificates = async () => {
+      if (!supabase || !user) {
+        setCertificates([]);
+        setSelectedCertificate(null);
+        return;
+      }
+
+      const { data } = await supabase
+        .from('certificates')
+        .select('*')
+        .eq('student_id', user.id)
+        .order('issued_at', { ascending: false });
+      const records = (data ?? []).map((item) => ({
+        certificateId: item.certificate_id,
+        slug: item.certificate_data?.slug ?? '',
+        experimentName: item.experiment_name,
+        experimentCategory: item.certificate_data?.experimentCategory ?? 'Not available',
+        studentName: item.certificate_data?.studentName ?? profile?.full_name ?? 'Not available',
+        course: item.certificate_data?.course ?? 'Not available',
+        batchYear: item.certificate_data?.batchYear ?? 'Not available',
+        entryNumber: item.certificate_data?.entryNumber ?? 'Not available',
+        institute: item.certificate_data?.institute ?? 'Not available',
+        department: item.certificate_data?.department ?? 'Not available',
+        labName: item.certificate_data?.labName ?? 'Not assigned',
+        teacherName: item.certificate_data?.teacherName ?? 'Not assigned',
+        supervisorName: item.certificate_data?.supervisorName ?? 'Not assigned',
+        attendanceStatus: item.certificate_data?.attendanceStatus ?? 'Not assigned',
+        className: item.certificate_data?.className ?? 'Not assigned',
+        completionDate: new Date(item.issued_at).toLocaleDateString('en-IN'),
+        score: item.score,
+        total: item.certificate_data?.total ?? 0,
+        percentage: item.percentage,
+        scoreText: `${item.percentage}%`,
+        createdAt: item.issued_at,
+      }));
+      setCertificates(records);
+      setSelectedCertificate(records[0] ?? null);
+    };
+
+    loadCertificates();
   }, [user]);
 
   return (
@@ -2964,6 +3571,19 @@ async function persistCertificateRecord(user, record) {
         department: record.department,
       },
       completed_at: record.createdAt,
+    },
+    { onConflict: 'certificate_id' },
+  );
+
+  await supabase.from('certificates').upsert(
+    {
+      certificate_id: record.certificateId,
+      student_id: user.id,
+      experiment_name: record.experimentName,
+      score: record.score,
+      percentage: record.percentage,
+      issued_at: record.createdAt,
+      certificate_data: record,
     },
     { onConflict: 'certificate_id' },
   );
