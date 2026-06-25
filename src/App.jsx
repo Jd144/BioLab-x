@@ -944,6 +944,52 @@ function mergeVerificationStatus(profileLike, verificationStatus) {
   };
 }
 
+async function persistVerificationRequestStatus(targetUser, nextStatus, roleOverride) {
+  if (!supabase || !targetUser?.id) {
+    return { error: null };
+  }
+
+  const payload = {
+    user_id: targetUser.id,
+    role_requested: normalizeRole(roleOverride ?? targetUser.role),
+    status: nextStatus ?? 'pending',
+    details: {
+      full_name: targetUser.full_name ?? '',
+      email: targetUser.email ?? '',
+    },
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: existingRequest, error: lookupError } = await supabase
+    .from('verification_requests')
+    .select('id')
+    .eq('user_id', targetUser.id)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (lookupError) {
+    return { error: lookupError };
+  }
+
+  if (existingRequest?.id) {
+    const { error } = await supabase
+      .from('verification_requests')
+      .update({
+        role_requested: payload.role_requested,
+        status: payload.status,
+        details: payload.details,
+        updated_at: payload.updated_at,
+      })
+      .eq('id', existingRequest.id);
+
+    return { error };
+  }
+
+  const { error } = await supabase.from('verification_requests').insert(payload);
+  return { error };
+}
+
 function isAdminEmail(email) {
   return email?.toLowerCase() === ADMIN_EMAIL;
 }
@@ -2726,16 +2772,11 @@ function AdminDashboard({ user, profile }) {
       if (error) {
         if (error.message?.includes('verification_status')) {
           saveAdminOverride(targetUser, { verification_status: payload.verification_status ?? 'pending' });
-          await supabase.from('verification_requests').upsert({
-            user_id: targetUser.id,
-            role_requested: targetUser.role,
-            status: payload.verification_status ?? 'pending',
-            details: {
-              full_name: targetUser.full_name,
-              email: targetUser.email,
-            },
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id' });
+          const { error: requestError } = await persistVerificationRequestStatus(
+            targetUser,
+            payload.verification_status ?? 'pending',
+            targetUser.role,
+          );
           const compatibilityProfile = {
             ...targetUser,
             verification_status: payload.verification_status ?? targetUser.verification_status ?? 'pending',
@@ -2743,7 +2784,11 @@ function AdminDashboard({ user, profile }) {
           setUsers((currentUsers) =>
             currentUsers.map((item) => (item.id === targetUser.id ? compatibilityProfile : item)),
           );
-          setMessage(`${compatibilityProfile.full_name ?? 'User'} updated in compatibility mode. Reload that user account in the same browser.`);
+          setMessage(
+            requestError
+              ? `Action saved locally, but verification request sync failed: ${requestError.message}`
+              : `${compatibilityProfile.full_name ?? 'User'} updated in compatibility mode. Reload that user account in the same browser.`,
+          );
           return;
         }
 
@@ -2763,16 +2808,11 @@ function AdminDashboard({ user, profile }) {
         verification_status: updatedProfile.verification_status ?? payload.verification_status ?? targetUser.verification_status,
         role: updatedProfile.role ?? payload.role ?? targetUser.role,
       });
-      await supabase.from('verification_requests').upsert({
-        user_id: targetUser.id,
-        role_requested: updatedProfile.role ?? payload.role ?? targetUser.role,
-        status: updatedProfile.verification_status ?? payload.verification_status ?? targetUser.verification_status ?? 'pending',
-        details: {
-          full_name: targetUser.full_name,
-          email: targetUser.email,
-        },
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' });
+      const { error: requestError } = await persistVerificationRequestStatus(
+        targetUser,
+        updatedProfile.verification_status ?? payload.verification_status ?? targetUser.verification_status ?? 'pending',
+        updatedProfile.role ?? payload.role ?? targetUser.role,
+      );
 
       supabase.from('admin_actions').insert({
         admin_id: user.id,
@@ -2788,7 +2828,11 @@ function AdminDashboard({ user, profile }) {
         note: actionType,
       }).then(() => {});
 
-      setMessage(`${updatedProfile.full_name ?? 'User'} updated successfully.`);
+      setMessage(
+        requestError
+          ? `${updatedProfile.full_name ?? 'User'} updated, but verification request sync failed: ${requestError.message}`
+          : `${updatedProfile.full_name ?? 'User'} updated successfully.`,
+      );
       loadAdminData();
     } catch (error) {
       setMessage(`Action stopped: ${error.message}. Please apply the latest supabase/schema.sql in Supabase SQL editor.`);
