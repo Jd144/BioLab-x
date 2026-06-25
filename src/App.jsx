@@ -2524,6 +2524,15 @@ function RecordList({ rows = [], empty = 'No data yet', render }) {
   );
 }
 
+function withTimeout(promise, timeoutMs) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      window.setTimeout(() => reject(new Error('Supabase request timed out')), timeoutMs);
+    }),
+  ]);
+}
+
 function AdminDashboard({ user, profile }) {
   const [users, setUsers] = useState([]);
   const [filterRole, setFilterRole] = useState('all');
@@ -2572,46 +2581,69 @@ function AdminDashboard({ user, profile }) {
       ...updates,
       updated_at: new Date().toISOString(),
     };
-    const { data: updatedProfile, error } = await supabase
-      .from('profiles')
-      .update(payload)
-      .eq('id', targetUser.id)
-      .select('*')
-      .maybeSingle();
 
-    if (error) {
-      setMessage(`Action failed: ${error.message}`);
-      setUpdatingUserId('');
-      return;
-    }
+    try {
+      const rpcResult = await withTimeout(
+        supabase.rpc('admin_update_profile_status', {
+          target_profile_id: targetUser.id,
+          profile_updates: payload,
+          action_name: actionType,
+        }),
+        12000,
+      );
 
-    if (!updatedProfile) {
-      setMessage('Action failed: Supabase did not update this user. Apply the latest admin RLS policies from supabase/schema.sql.');
-      setUpdatingUserId('');
-      return;
-    }
+      let updatedProfile = rpcResult.data;
+      let error = rpcResult.error;
 
-    setUsers((currentUsers) =>
-      currentUsers.map((item) => (item.id === targetUser.id ? { ...item, ...updatedProfile } : item)),
-    );
+      if (error?.message?.includes('Could not find the function')) {
+        const directResult = await withTimeout(
+          supabase
+            .from('profiles')
+            .update(payload)
+            .eq('id', targetUser.id)
+            .select('*')
+            .maybeSingle(),
+          12000,
+        );
+        updatedProfile = directResult.data;
+        error = directResult.error;
+      }
 
-    await supabase.from('admin_actions').insert({
+      if (error) {
+        setMessage(`Action failed: ${error.message}`);
+        return;
+      }
+
+      if (!updatedProfile) {
+        setMessage('Action failed: profile was not updated. Please apply the latest supabase/schema.sql in Supabase SQL editor.');
+        return;
+      }
+
+      setUsers((currentUsers) =>
+        currentUsers.map((item) => (item.id === targetUser.id ? { ...item, ...updatedProfile } : item)),
+      );
+
+      supabase.from('admin_actions').insert({
         admin_id: user.id,
         target_user_id: targetUser.id,
         action_type: actionType,
         details: payload,
-    });
-    await supabase.from('user_status_logs').insert({
+      }).then(() => {});
+      supabase.from('user_status_logs').insert({
         user_id: targetUser.id,
         changed_by: user.id,
         status: payload.status ?? targetUser.status,
         verification_status: payload.verification_status ?? targetUser.verification_status,
         note: actionType,
-    });
+      }).then(() => {});
 
-    setMessage(`${updatedProfile.full_name ?? 'User'} updated successfully.`);
-    setUpdatingUserId('');
-    await loadAdminData();
+      setMessage(`${updatedProfile.full_name ?? 'User'} updated successfully.`);
+      loadAdminData();
+    } catch (error) {
+      setMessage(`Action stopped: ${error.message}. Please apply the latest supabase/schema.sql in Supabase SQL editor.`);
+    } finally {
+      setUpdatingUserId('');
+    }
   };
 
   const visibleUsers = filterRole === 'all'

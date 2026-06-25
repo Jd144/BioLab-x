@@ -392,6 +392,56 @@ as $$
   );
 $$;
 
+create or replace function public.admin_update_profile_status(
+  target_profile_id uuid,
+  profile_updates jsonb,
+  action_name text
+)
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  updated_profile public.profiles;
+begin
+  if not public.is_biolabx_admin() then
+    raise exception 'Only the BioLabX admin can update users';
+  end if;
+
+  update public.profiles
+  set
+    verification_status = coalesce(profile_updates->>'verification_status', verification_status),
+    is_verified = coalesce((profile_updates->>'is_verified')::boolean, is_verified),
+    status = coalesce(profile_updates->>'status', status),
+    role = case
+      when profile_updates ? 'role' then (profile_updates->>'role')::public.user_role
+      else role
+    end,
+    updated_at = now()
+  where id = target_profile_id
+  returning * into updated_profile;
+
+  if updated_profile.id is null then
+    raise exception 'Profile not found';
+  end if;
+
+  insert into public.admin_actions (admin_id, target_user_id, action_type, details)
+  values (auth.uid(), target_profile_id, action_name, profile_updates);
+
+  insert into public.user_status_logs (user_id, changed_by, status, verification_status, note)
+  values (
+    target_profile_id,
+    auth.uid(),
+    updated_profile.status,
+    updated_profile.verification_status,
+    action_name
+  );
+
+  return updated_profile;
+end;
+$$;
+
 alter table public.profiles enable row level security;
 alter table public.verification_requests enable row level security;
 alter table public.admin_actions enable row level security;
