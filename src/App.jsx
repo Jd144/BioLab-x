@@ -57,6 +57,7 @@ const pages = [
 
 const dashboardRoles = ['student', 'teacher', 'lab_assistant', 'phd', 'institute', 'admin'];
 const ADMIN_EMAIL = 'charanjaydeep712@gmail.com';
+const ADMIN_OVERRIDE_STORAGE_KEY = 'biolabx-admin-overrides';
 
 const routePaths = {
   home: '/',
@@ -611,11 +612,11 @@ function AppShell() {
       const fallbackProfile = buildProfileFromUser(currentUser);
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, user_id, full_name, email, mobile_number, role, verification_status, course, batch_year, entry_number, roll_number, department, institute, institution, designation, subjects_taught, lab_name, teacher_name, instructor_name, supervisor_name, pi_name, research_area, current_project, publications_count, conferences_count, responsibility, experience, phd_year, number_of_labs, coordinator_name, official_email, organization, attendance_status, class_name, batch_name, bio')
+        .select('*')
         .eq('id', currentUser.id)
         .single();
 
-      const nextProfile = error ? fallbackProfile : { ...fallbackProfile, ...data };
+      const nextProfile = applyAdminOverride(error ? fallbackProfile : { ...fallbackProfile, ...data });
       const resolvedProfile = isAdminEmail(currentUser.email)
         ? {
             ...nextProfile,
@@ -835,6 +836,47 @@ function getDashboardPathForRole(role) {
   return routePaths[normalizedRole] ?? routePaths.student;
 }
 
+function getAdminOverrides() {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+
+  try {
+    return JSON.parse(window.localStorage.getItem(ADMIN_OVERRIDE_STORAGE_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+function getAdminOverride(userId) {
+  return getAdminOverrides()[userId] ?? {};
+}
+
+function saveAdminOverride(userId, patch) {
+  if (typeof window === 'undefined' || !userId) {
+    return;
+  }
+
+  const overrides = getAdminOverrides();
+  overrides[userId] = {
+    ...(overrides[userId] ?? {}),
+    ...patch,
+    updated_at: new Date().toISOString(),
+  };
+  window.localStorage.setItem(ADMIN_OVERRIDE_STORAGE_KEY, JSON.stringify(overrides));
+}
+
+function applyAdminOverride(profileLike) {
+  if (!profileLike?.id) {
+    return profileLike;
+  }
+
+  return {
+    ...profileLike,
+    ...getAdminOverride(profileLike.id),
+  };
+}
+
 function isAdminEmail(email) {
   return email?.toLowerCase() === ADMIN_EMAIL;
 }
@@ -846,7 +888,7 @@ function normalizeRole(role) {
 function buildProfileFromUser(user) {
   const metadata = user.user_metadata ?? {};
 
-  return {
+  return applyAdminOverride({
     id: user.id,
     full_name: metadata.full_name ?? user.email?.split('@')[0] ?? 'BioLabX User',
     role: isAdminEmail(user.email) ? 'admin' : normalizeRole(metadata.role),
@@ -882,7 +924,7 @@ function buildProfileFromUser(user) {
     attendance_status: metadata.attendance_status ?? '',
     class_name: metadata.class_name ?? '',
     batch_name: metadata.batch_name ?? '',
-  };
+  });
 }
 
 function Navbar({ activePage, isMenuOpen, user, profile, onSignOut, onMenuToggle, onNavigate }) {
@@ -2599,6 +2641,19 @@ function AdminDashboard({ user, profile }) {
       }
 
       if (error) {
+        if (error.message?.includes('verification_status')) {
+          saveAdminOverride(targetUser.id, { verification_status: payload.verification_status ?? 'pending' });
+          const compatibilityProfile = {
+            ...targetUser,
+            verification_status: payload.verification_status ?? targetUser.verification_status ?? 'pending',
+          };
+          setUsers((currentUsers) =>
+            currentUsers.map((item) => (item.id === targetUser.id ? compatibilityProfile : item)),
+          );
+          setMessage(`${compatibilityProfile.full_name ?? 'User'} updated in compatibility mode. Reload that user account in the same browser.`);
+          return;
+        }
+
         setMessage(`Action failed: ${error.message}`);
         return;
       }
